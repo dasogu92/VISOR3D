@@ -438,13 +438,14 @@ function toast(msg,ms){
 /* ===============================================================
    IndexedDB — modelos añadidos por ZIP
 =============================================================== */
-const DB={name:'visor3d',store:'modelos',thumbs:'thumbs',v:2};
+const DB={name:'visor3d',store:'modelos',thumbs:'thumbs',galeria:'galeria',v:3};
 function idb(){
   return new Promise((res,rej)=>{
     const r=indexedDB.open(DB.name,DB.v);
     r.onupgradeneeded=()=>{
       if(!r.result.objectStoreNames.contains(DB.store)) r.result.createObjectStore(DB.store,{keyPath:'code'});
       if(!r.result.objectStoreNames.contains(DB.thumbs)) r.result.createObjectStore(DB.thumbs,{keyPath:'code'});
+      if(!r.result.objectStoreNames.contains(DB.galeria)) r.result.createObjectStore(DB.galeria,{keyPath:'code'});
     };
     r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
   });
@@ -454,6 +455,14 @@ async function idbGet(store,key){
   return new Promise((res,rej)=>{
     const req=db.transaction(store,'readonly').objectStore(store).get(key);
     req.onsuccess=()=>res(req.result||null); req.onerror=()=>rej(req.error);
+  });
+}
+async function idbBorrar(store,key){
+  const db=await idb();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(store,'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
   });
 }
 async function idbSet(store,rec){
@@ -1250,7 +1259,7 @@ async function loadCatalog(){
 async function cargarLocales(){
   let recs=[];
   try{ recs=await idbAll(); }catch(e){ return; }
-  recs.forEach(r=>{
+  recs.filter(r=>r.code&&!String(r.code).startsWith('__')).forEach(r=>{
     const ya=S.models.find(m=>m.code===r.code);
     const datos={local:true,disponible:true,format:r.format,
                  basePath:r.basePath||null,manifest:r.manifest||null,
@@ -1655,13 +1664,22 @@ let galeria=[];
 
 async function galeriaCargar(){
   try{
-    const rec=await idbGet(DB.store,'__galeria__');
+    let rec=await idbGet(DB.galeria,'items');
+    if(!rec){
+      /* Versiones anteriores la guardaban junto a los modelos */
+      const viejo=await idbGet(DB.store,'__galeria__').catch(()=>null);
+      if(viejo&&viejo.items){
+        rec={items:viejo.items};
+        await idbSet(DB.galeria,{code:'items',items:viejo.items});
+        await idbBorrar(DB.store,'__galeria__');
+      }
+    }
     galeria=(rec&&rec.items)||[];
   }catch(e){ galeria=[]; }
   galeriaPintar();
 }
 async function galeriaGuardar(){
-  try{ await idbSet(DB.store,{code:'__galeria__',items:galeria}); }catch(e){}
+  try{ await idbSet(DB.galeria,{code:'items',items:galeria}); }catch(e){}
   galeriaPintar();
 }
 function galeriaPintar(){
