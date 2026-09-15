@@ -1,0 +1,20 @@
+{
+  "cliente": "PRUEBA01",
+  "creado": "2026-09-15",
+  "disenos": [
+    {
+      "titulo": "PRUEBA01",
+      "modelo": "1756",
+      "modelo_nombre": "CAMISETA MC NATIVE UNI 1756",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": 6.361599999999999,
+        "phi": 1.352116694115406,
+        "dist": 106.36007728249605,
+        "luzKey": 0.3,
+        "luzFill": 0.3
+      }
+    }
+  ]
+}
