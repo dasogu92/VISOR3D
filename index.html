@@ -371,6 +371,12 @@
 /* ===============================================================
    CONFIGURACIÓN
 =============================================================== */
+const GH={
+  usuario:'dasogu92',
+  repo:'VISOR3D',
+  rama:'main'
+};
+
 const CONFIG={
   catalogo:'catalogo.json',
   bases:['models/','modelos/'],
@@ -1705,6 +1711,131 @@ function nuevoToken(){
   return Array.from(b,x=>abc[x%32]).join('');
 }
 
+/* ---------------------------------------------------------------
+   Publicación directa en GitHub
+   El token vive solo en este navegador, nunca en el código.
+--------------------------------------------------------------- */
+const TOKEN_STORE='visor3d_gh_token';
+const ghToken=()=>localStorage.getItem(TOKEN_STORE)||'';
+
+function pedirToken(){
+  const t=prompt(
+    'Pega tu token de GitHub.\n\n'+
+    'Se guarda solo en este navegador y no sale de aquí.\n'+
+    'Para borrarlo, escribe la palabra BORRAR.',
+    ghToken()?'(ya hay uno guardado)':''
+  );
+  if(t===null) return false;
+  const v=t.trim();
+  if(v.toUpperCase()==='BORRAR'){ localStorage.removeItem(TOKEN_STORE); status('Token borrado'); return false; }
+  if(!v||v==='(ya hay uno guardado)') return !!ghToken();
+  localStorage.setItem(TOKEN_STORE,v);
+  return true;
+}
+
+function blobABase64(blob){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(String(r.result).split(',')[1]);
+    r.onerror=()=>rej(new Error('No se ha podido leer el archivo'));
+    r.readAsDataURL(blob);
+  });
+}
+
+async function ghSubir(ruta,blob,mensaje){
+  const url=`https://api.github.com/repos/${GH.usuario}/${GH.repo}/contents/${ruta}`;
+  const cuerpo={
+    message:mensaje,
+    content:await blobABase64(blob),
+    branch:GH.rama
+  };
+  /* Si el archivo ya existe hay que mandar su sha para reemplazarlo */
+  try{
+    const prev=await fetch(url+'?ref='+GH.rama,{headers:{Authorization:'Bearer '+ghToken()}});
+    if(prev.ok){ cuerpo.sha=(await prev.json()).sha; }
+  }catch(e){}
+
+  const res=await fetch(url,{
+    method:'PUT',
+    headers:{
+      Authorization:'Bearer '+ghToken(),
+      Accept:'application/vnd.github+json',
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify(cuerpo)
+  });
+  if(res.status===401) throw new Error('Token no válido o caducado');
+  if(res.status===403) throw new Error('El token no tiene permiso de escritura en el repositorio');
+  if(res.status===404) throw new Error('Repositorio no encontrado: revisa GH.usuario y GH.repo');
+  if(!res.ok){
+    let m='HTTP '+res.status;
+    try{ m=(await res.json()).message||m; }catch(e){}
+    throw new Error(m);
+  }
+  return res.json();
+}
+
+async function galeriaPublicar(){
+  if(!galeria.length) return;
+  if(!ghToken() && !pedirToken()) return;
+
+  const cliente=prompt('Nombre del cliente:','');
+  if(cliente===null) return;
+
+  const token=nuevoToken();
+  const carpeta='c/'+token+'/';
+  const ficha={
+    cliente:(cliente||'').trim()||'Cliente',
+    creado:new Date().toISOString().slice(0,10),
+    disenos:[]
+  };
+
+  /* Se prepara todo antes de subir nada */
+  const archivos=[];
+  galeria.forEach((d,i)=>{
+    const ext=(d.disenoNombre.split('.').pop()||'jpg').toLowerCase();
+    const fD='diseno-'+(i+1)+'.'+ext;
+    const fP='preview-'+(i+1)+'.png';
+    archivos.push([carpeta+fD,d.disenoBlob]);
+    archivos.push([carpeta+fP,d.previewBlob]);
+    ficha.disenos.push({
+      titulo:d.titulo, modelo:d.modelo, modelo_nombre:d.modelo_nombre,
+      diseno:fD, preview:fP, camara:d.camara
+    });
+  });
+  archivos.push([carpeta+'galeria.json',
+    new Blob([JSON.stringify(ficha,null,2)],{type:'application/json'})]);
+
+  try{
+    for(let i=0;i<archivos.length;i++){
+      const [ruta,blob]=archivos[i];
+      status('Publicando '+(i+1)+'/'+archivos.length+'…');
+      progreso((i+1)/archivos.length*100);
+      await ghSubir(ruta,blob,'Galería de '+ficha.cliente);
+    }
+    progreso(null);
+    const enlace=new URL('ver.html?c='+token,location.href).href;
+    console.log('Enlace del cliente:',enlace);
+    await copiar(enlace);
+    prompt('Publicado. El enlace tarda un par de minutos en activarse.\n\n'+
+           'Ya está copiado al portapapeles:',enlace);
+    status('Galería publicada');
+  }catch(e){
+    progreso(null);
+    status(e.message,true);
+    alert('No se ha podido publicar:\n\n'+e.message);
+  }
+}
+
+async function copiar(txt){
+  try{ await navigator.clipboard.writeText(txt); }
+  catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=txt; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+}
+
 async function galeriaExportar(){
   if(!galeria.length) return;
   const cliente=prompt('Nombre del cliente:','');
@@ -1750,10 +1881,18 @@ async function galeriaExportar(){
 function galeriaVer(){
   if(!galeria.length) return;
   const lista=galeria.map((d,i)=>`${i+1}. ${d.titulo} — ${d.modelo_nombre||d.modelo}`).join('\n');
-  const r=prompt(lista+'\n\nEscribe EXPORTAR para generar el paquete, o VACIAR para empezar de cero.','EXPORTAR');
+  const r=prompt(
+    lista+'\n\n'+
+    'PUBLICAR — sube la galería a GitHub y copia el enlace\n'+
+    'ZIP — descarga el paquete para subirlo a mano\n'+
+    'VACIAR — empieza una galería nueva\n'+
+    'TOKEN — cambia el token de GitHub',
+    'PUBLICAR');
   if(r===null) return;
   const op=r.trim().toUpperCase();
-  if(op==='EXPORTAR') galeriaExportar();
+  if(op==='PUBLICAR') galeriaPublicar();
+  else if(op==='ZIP') galeriaExportar();
+  else if(op==='TOKEN') pedirToken();
   else if(op==='VACIAR'){ galeria=[]; galeriaGuardar(); status('Galería vaciada'); }
 }
 

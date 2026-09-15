@@ -42,6 +42,8 @@
   }
 
   .main{flex:1;min-height:0;display:flex}
+  .main[hidden]{display:none}          /* el atributo hidden no gana a display:flex */
+  .aviso[hidden]{display:none}
   .tira{
     width:190px;flex:none;border-right:1px solid var(--rule);
     overflow-y:auto;padding:16px 14px 28px;display:flex;flex-direction:column;gap:14px;
@@ -917,7 +919,11 @@ async function abrirDiseno(d,boton){
 async function arrancar(){
   if(!token){ aviso('Enlace incompleto','Abre el enlace completo que te hemos enviado.'); return; }
   try{ ficha=await fetchJSON(CARPETA+'galeria.json'); }
-  catch(e){ aviso('Enlace no válido','Comprueba que has copiado el enlace entero.'); return; }
+  catch(e){
+    console.warn('No se ha encontrado',new URL(CARPETA+'galeria.json',location.href).href);
+    aviso('Enlace no válido','No se encuentra '+CARPETA+'galeria.json en el servidor.');
+    return;
+  }
 
   $('aviso').hidden=true; $('main').hidden=false;
   $('quien').textContent=ficha.cliente||'';
