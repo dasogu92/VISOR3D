@@ -1,0 +1,27 @@
+{
+    "capturas": [
+        {
+            "nombre": "captura1.png",
+            "camara": {
+                "rotacionEscena": 0,
+                "width": 150,
+                "height": 150,
+                "relativa": false
+            }
+        }
+    ],
+    "propiedadesFicha": [
+        {
+            "ficha": "admin.json"
+        },
+        {
+            "fichabase": ""
+        },
+        {
+            "imagen": []
+        },
+        {
+            "texto": []
+        }
+    ]
+}

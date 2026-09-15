@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tus diseños</title>
+<!--
+  VER.HTML — visor de cliente.
+  Se abre con:  ver.html?c=TOKEN     (la carpeta c/TOKEN/ del repositorio)
+  Lee c/TOKEN/galeria.json y monta el modelo 3D con el diseño aplicado.
+  El motor de render es el mismo del visor interno.
+-->
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#000000; --stage:#EDEDEA;
+    --rule:#E2E2DE; --accent:#F2513B; --muted:#8A8A85; --pad:24px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;
+  }
+  button{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .masthead{
+    position:relative;display:flex;align-items:center;justify-content:center;gap:12px;
+    min-height:72px;padding:14px var(--pad);border-bottom:1px solid var(--rule);flex:none;
+  }
+  .wordmark{
+    font-size:clamp(17px,4.4vw,26px);font-weight:700;
+    letter-spacing:.42em;text-indent:.42em;text-transform:uppercase;white-space:nowrap;
+  }
+  .wordmark sup{font-size:9px;letter-spacing:.18em;vertical-align:super;font-weight:400;text-transform:lowercase;margin-left:-.35em}
+  .quien{
+    position:absolute;right:var(--pad);top:50%;transform:translateY(-50%);
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  }
+
+  .main{flex:1;min-height:0;display:flex}
+  .tira{
+    width:190px;flex:none;border-right:1px solid var(--rule);
+    overflow-y:auto;padding:16px 14px 28px;display:flex;flex-direction:column;gap:14px;
+  }
+  .item{background:none;border:none;padding:0;cursor:pointer;text-align:left}
+  .item .shot{position:relative;aspect-ratio:4/5;background:var(--stage);overflow:hidden}
+  .item .shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .2s}
+  .item .shot img.on{opacity:1}
+  .item .tit{margin-top:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;line-height:1.35}
+  .item[aria-current="true"] .tit{color:var(--accent)}
+  .item[aria-current="true"] .shot{outline:2px solid var(--accent);outline-offset:-2px}
+
+  .stage{flex:1;min-width:0;position:relative;background:var(--stage)}
+  .stage canvas{display:block;width:100%;height:100%;touch-action:none}
+  .status{position:absolute;left:16px;bottom:14px;max-width:70%;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .status.err{color:var(--accent)}
+  .hint{position:absolute;right:16px;bottom:14px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .hint.tactil{display:none}
+  .barra{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--rule);display:none}
+  .barra.on{display:block}
+  .barra i{display:block;height:100%;width:0;background:var(--accent)}
+
+  .acciones{
+    position:absolute;left:16px;top:16px;display:flex;gap:8px;flex-wrap:wrap;
+  }
+  .ghost{
+    background:rgba(255,255,255,.9);border:1px solid var(--ink);padding:8px 13px;cursor:pointer;
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  }
+  .ghost:hover{background:var(--ink);color:var(--paper)}
+
+  .aviso{margin:16vh auto;padding:0 var(--pad);max-width:520px;text-align:center}
+  .aviso h2{font-size:15px;letter-spacing:.2em;text-transform:uppercase;margin:0 0 12px}
+  .aviso p{color:var(--muted);margin:0}
+
+  @media (max-width:860px){
+    :root{--pad:16px}
+    .main{flex-direction:column}
+    .stage{order:1;flex:none;height:56vh;height:56dvh;min-height:300px}
+    .tira{
+      order:2;width:100%;border-right:none;border-top:1px solid var(--rule);
+      flex-direction:row;overflow-x:auto;overflow-y:hidden;gap:12px;padding:14px var(--pad);
+    }
+    .item{flex:none;width:110px}
+    .hint{display:none}
+    .hint.tactil{display:block;right:auto;left:var(--pad);bottom:10px;font-size:9px}
+    .status{bottom:26px;font-size:9px;max-width:90%}
+    .acciones{left:var(--pad);top:12px}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wordmark">RUMM<sup>custom</sup></div>
+  <div class="quien" id="quien"></div>
+</header>
+
+<div class="main" id="main" hidden>
+  <nav class="tira" id="tira"></nav>
+  <div class="stage" id="stage">
+    <div class="acciones">
+      <button class="ghost" id="btnPng">Descargar PNG</button>
+      <button class="ghost" id="btn4">4 vistas</button>
+    </div>
+    <p class="status" id="status">Cargando…</p>
+    <p class="hint">Arrastrar: girar · Rueda: zoom · Doble clic: vista inicial</p>
+    <p class="hint tactil">Un dedo: girar · Dos dedos: zoom · Doble toque: vista inicial</p>
+    <div class="barra" id="barra"><i id="barraFill"></i></div>
+  </div>
+</div>
+
+<div class="aviso" id="aviso">
+  <h2 id="avisoTitulo">Cargando…</h2>
+  <p id="avisoTexto"></p>
+</div>
+
+<script>
+/* ===============================================================
+   Configuración
+=============================================================== */
+const CONFIG={ bases:['models/','modelos/'], manifiesto:'manifest.json' };
+const CDN={
+  three:['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+         'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+         'https://unpkg.com/three@0.128.0/build/three.min.js'],
+  gltf: ['https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
+         'https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js'],
+  jszip:['https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+         'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js']
+};
+function loadScript(urls){
+  return new Promise((resolve,reject)=>{
+    let i=0;
+    (function next(){
+      if(i>=urls.length){reject(new Error('CDN inaccesible'));return;}
+      const s=document.createElement('script');
+      s.src=urls[i++]; s.onload=resolve; s.onerror=next;
+      document.head.appendChild(s);
+    })();
+  });
+}
+
+/* Mismos valores de fábrica que el visor interno */
+let saturacion=1.00, vivacidad=0, correccionAdobe=false;
+let intensidadMalla=1, inclinacionVista=9, relieve=0.5;
+
+const S={
+  scene:null, camera:null, renderer:null, root:null, base:null,
+  materiales:[], designURL:null, actual:null, exportando:false,
+  orbit:{theta:0, phi:Math.PI/2-9*Math.PI/180, dist:3, target:null},
+  luces:{}
+};
+const $=id=>document.getElementById(id);
+const status=(m,e)=>{const el=$('status');el.textContent=m;el.classList.toggle('err',!!e);};
+function toast(){}                               // el cliente no necesita avisos flotantes
+
+/* ===============================================================
+   LEGACY JSON LOADER — portado del panel de producción
+
+   Formato Three.js v3 exportado por ThreeJSExporter de 3ds Max.
+=============================================================== */
+function parseLegacyJSON(json){
+  const verts=json.vertices;
+  const uvLayer=(json.uvs&&json.uvs[0])?json.uvs[0]:[];
+  const faces=json.faces;
+
+  const positions=[], uvs=[], normals=[];
+  let i=0;
+  while(i<faces.length){
+    const type=faces[i++];
+    const isQuad               = !!(type & 1);
+    const hasMaterial          = !!(type & 2);
+    const hasFaceUv            = !!(type & 4);
+    const hasFaceVertexUv      = !!(type & 8);
+    const hasFaceNormal        = !!(type & 16);
+    const hasFaceVertexNormal  = !!(type & 32);
+    const hasFaceColor         = !!(type & 64);
+    const hasFaceVertexColor   = !!(type & 128);
+
+    const nv=isQuad?4:3;
+    const vIdx=[];
+    for(let k=0;k<nv;k++) vIdx.push(faces[i++]);
+
+    if(hasMaterial) i++;
+    if(hasFaceUv) i++;
+    let uvIdx=null;
+    if(hasFaceVertexUv){ uvIdx=[]; for(let k=0;k<nv;k++) uvIdx.push(faces[i++]); }
+    if(hasFaceNormal) i++;
+    let nIdx=null;
+    if(hasFaceVertexNormal){ nIdx=[]; for(let k=0;k<nv;k++) nIdx.push(faces[i++]); }
+    if(hasFaceColor) i++;
+    if(hasFaceVertexColor) i+=nv;
+
+    const triIdx = isQuad ? [[0,1,2],[0,2,3]] : [[0,1,2]];
+    for(const tri of triIdx){
+      for(const k of tri){
+        const v=vIdx[k]*3;
+        positions.push(verts[v],verts[v+1],verts[v+2]);
+        if(uvIdx&&uvLayer.length){
+          const u=uvIdx[k]*2;
+          uvs.push(uvLayer[u],uvLayer[u+1]);
+        }else uvs.push(0,0);
+        if(nIdx&&json.normals&&json.normals.length){
+          const n=nIdx[k]*3;
+          normals.push(json.normals[n],json.normals[n+1],json.normals[n+2]);
+        }
+      }
+    }
+  }
+
+  const geom=new THREE.BufferGeometry();
+  geom.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geom.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+  if(normals.length){
+    geom.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  }else{
+    geom.computeVertexNormals();
+    smoothNormalsByPosition(geom);
+  }
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+/* Promedia normales entre vértices que comparten posición: replica los
+   grupos de suavizado de 3ds Max y quita las facetas de las costuras UV. */
+function smoothNormalsByPosition(geom){
+  const pos=geom.attributes.position.array;
+  const nor=geom.attributes.normal.array;
+  const count=pos.length/3;
+  const PRECISION=10000;
+  const grupos=new Map();
+  for(let i=0;i<count;i++){
+    const key=Math.round(pos[i*3]*PRECISION)+'_'+Math.round(pos[i*3+1]*PRECISION)+'_'+Math.round(pos[i*3+2]*PRECISION);
+    let arr=grupos.get(key);
+    if(!arr){arr=[];grupos.set(key,arr);}
+    arr.push(i);
+  }
+  for(const idxs of grupos.values()){
+    if(idxs.length<2) continue;
+    let nx=0,ny=0,nz=0;
+    for(const i of idxs){ nx+=nor[i*3]; ny+=nor[i*3+1]; nz+=nor[i*3+2]; }
+    const len=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;
+    nx/=len; ny/=len; nz/=len;
+    for(const i of idxs){ nor[i*3]=nx; nor[i*3+1]=ny; nor[i*3+2]=nz; }
+  }
+  geom.attributes.normal.needsUpdate=true;
+}
+
+/* ===============================================================
+   MATERIALES — portado del buildMaterial de producción
+=============================================================== */
+function prepararTexturaColor(tex){
+  if(!tex) return;
+  tex.encoding=THREE.sRGBEncoding;
+  const w2=S.renderer&&S.renderer.capabilities&&S.renderer.capabilities.isWebGL2;
+  if(w2){
+    tex.generateMipmaps=true;
+    tex.minFilter=THREE.LinearMipmapLinearFilter;
+    tex.magFilter=THREE.LinearFilter;
+    try{ tex.anisotropy=S.renderer.capabilities.getMaxAnisotropy(); }catch(e){}
+  }else{
+    tex.generateMipmaps=false;
+    tex.minFilter=THREE.LinearFilter;
+    tex.magFilter=THREE.LinearFilter;
+  }
+  tex.needsUpdate=true;
+}
+
+function cargarTextura(url){
+  return new Promise((res,rej)=>new THREE.TextureLoader().load(url,res,undefined,rej));
+}
+
+/* Los nombres del config pueden traer subcarpeta (PROPIEDADES/algo.jpg).
+   encodeURIComponent sobre la cadena entera convertiría la barra en %2F y
+   rompería la ruta, así que se codifica segmento a segmento. */
+function urlMapa(basePath,nombre){
+  return basePath + String(nombre).split('/').map(encodeURIComponent).join('/');
+}
+
+async function cargarMapa(basePath,nombre,etiqueta){
+  const url=urlMapa(basePath,nombre);
+  try{
+    return await cargarTextura(url);
+  }catch(e){
+    console.warn('[mapa] '+etiqueta+' no cargado:',url);
+    return null;
+  }
+}
+
+function aColor(c,fallback){
+  fallback = fallback===undefined ? 0xffffff : fallback;
+  if(c===null||c===undefined) return new THREE.Color(fallback);
+  if(typeof c==='number'||typeof c==='string') return new THREE.Color(c);
+  if(Array.isArray(c)) return new THREE.Color(c[0]||0,c[1]||0,c[2]||0);
+  if(typeof c==='object') return new THREE.Color(
+    c.r!==undefined?c.r:1, c.g!==undefined?c.g:1, c.b!==undefined?c.b:1);
+  return new THREE.Color(fallback);
+}
+
+async function buildMaterial(matCfg,basePath,diffuseUrl,isExterior){
+  matCfg=matCfg||{};
+
+  const params={
+    color: aColor(matCfg.color,0xffffff),
+    specular:new THREE.Color(0x222222),
+    shininess:12,
+    transparent:!!matCfg.alphaMap,
+    opacity: matCfg.opacity!==undefined?matCfg.opacity:1,
+    side: matCfg.side===1?THREE.BackSide : matCfg.side===2?THREE.DoubleSide : THREE.FrontSide,
+    wireframe:!!matCfg.wireframe
+  };
+
+  const diffuseSrc = diffuseUrl || (matCfg.map ? urlMapa(basePath,matCfg.map) : null);
+  if(diffuseSrc){
+    try{
+      const t=await cargarTextura(diffuseSrc);
+      t.flipY = true;                               // misma orientación que el resto de mapas
+      t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;
+      t.minFilter=THREE.LinearFilter; t.magFilter=THREE.LinearFilter;
+      t.generateMipmaps=false;
+      prepararTexturaColor(t);
+      params.map=t;
+    }catch(e){ console.warn('Diffuse no cargado:',diffuseSrc,e); }
+  }
+
+  /* Los mapas del modelo comparten las UV de la prenda, así que su
+     orientación no depende de si hay diseño cargado o no. */
+  const flipYMaps=true;
+  if(matCfg.normalMap){
+    const t=await cargarMapa(basePath,matCfg.normalMap,'normal');
+    if(t){
+      t.flipY=flipYMaps;
+      params.normalMap=t;
+      const nx=(matCfg.normalScale&&matCfg.normalScale.x!==undefined)?matCfg.normalScale.x:1;
+      const ny=(matCfg.normalScale&&matCfg.normalScale.y!==undefined)?matCfg.normalScale.y:1;
+      params.normalScale=new THREE.Vector2(nx*relieve,ny*relieve);
+    }
+  }
+  if(matCfg.alphaMap){
+    const t=await cargarMapa(basePath,matCfg.alphaMap,'alpha');
+    if(t){ t.flipY=flipYMaps; params.alphaMap=t; }
+  }
+  if(matCfg.specularMap){
+    const t=await cargarMapa(basePath,matCfg.specularMap,'specular');
+    if(t){ t.flipY=flipYMaps; params.specularMap=t; }
+  }
+
+  const mat=new THREE.MeshPhongMaterial(params);
+  if(params.map){
+    mat.emissive=new THREE.Color(0xffffff);
+    mat.emissiveMap=params.map;
+    mat.emissiveIntensity=vivacidad;
+  }
+  mat.userData.cfg=matCfg;
+  mat.userData.basePath=basePath;
+
+  /* alphaMap parcial de DIM3D: el negro no siempre es agujero */
+  if(params.alphaMap){
+    const prev=mat.onBeforeCompile;
+    mat.onBeforeCompile=(shader)=>{
+      if(prev) prev(shader);
+      shader.uniforms.uAlphaK={value:intensidadMalla};
+      shader.fragmentShader='uniform float uAlphaK;\n'+shader.fragmentShader.replace(
+        '#include <alphamap_fragment>',
+        `
+        #ifdef USE_ALPHAMAP
+          float aMapVal = texture2D( alphaMap, vUv ).g;
+          float aAdj = clamp( 1.0 - (1.0 - aMapVal) * uAlphaK, 0.0, 1.0 );
+          diffuseColor.a *= aAdj;
+        #endif
+        `);
+      mat.userData._alphaShader=shader;
+    };
+  }
+  return mat;
+}
+
+/* Shader de color: Adobe RGB→sRGB + saturación, igual que en el panel */
+function hookColor(m){
+  if(!m.userData) m.userData={};
+  if(m.userData._satHooked) return;
+  const prev=m.onBeforeCompile;
+  m.onBeforeCompile=(shader)=>{
+    if(prev) prev(shader);
+    shader.uniforms.uSat={value:saturacion};
+    shader.uniforms.uAdobe={value:correccionAdobe?1.0:0.0};
+    shader.fragmentShader='uniform float uSat;\nuniform float uAdobe;\n'+shader.fragmentShader.replace(
+      '#include <map_fragment>',
+      '#include <map_fragment>\n'+
+      '  if (uAdobe > 0.5) {\n'+
+      '    mat3 mA2S = mat3(1.39825, 0.0, 0.0, -0.39833, 1.0, -0.04295, 0.0, 0.0, 1.04294);\n'+
+      '    diffuseColor.rgb = clamp(mA2S * diffuseColor.rgb, 0.0, 1.0);\n'+
+      '  }\n'+
+      '  float _satL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));\n'+
+      '  diffuseColor.rgb = max(mix(vec3(_satL), diffuseColor.rgb, uSat), 0.0);'
+    );
+    m.userData._satShader=shader;
+  };
+  m.userData._satHooked=true;
+  m.needsUpdate=true;
+}
+function aplicarColor(){
+  if(!S.root) return;
+  S.root.traverse(n=>{
+    if(!(n.isMesh&&n.material&&n.material.map)) return;
+    if(n.material.userData&&n.material.userData.layer==='interior') return;
+    (Array.isArray(n.material)?n.material:[n.material]).forEach(m=>{
+      hookColor(m);
+      if(m.userData._satShader){
+        m.userData._satShader.uniforms.uSat.value=saturacion;
+        m.userData._satShader.uniforms.uAdobe.value=correccionAdobe?1.0:0.0;
+      }
+    });
+  });
+}
+
+/* ===============================================================
+   Escena — luces, cámara y encuadre del panel de producción
+=============================================================== */
+function initThree(){
+  const stage=$('stage');
+  S.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
+  S.renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  S.renderer.outputEncoding=THREE.sRGBEncoding;
+  /* NoToneMapping: ACESFilmic lavaba los colores saturados */
+  S.renderer.toneMapping=THREE.NoToneMapping;
+  S.renderer.toneMappingExposure=1.0;
+  stage.appendChild(S.renderer.domElement);
+
+  S.scene=new THREE.Scene();
+  S.camera=new THREE.PerspectiveCamera(35,1,0.1,5000);
+  S.orbit.target=new THREE.Vector3();
+
+  const L=S.luces;
+  L.hemi=new THREE.HemisphereLight(0xffffff,0x555566,0.40);
+  L.key=new THREE.DirectionalLight(0xffffff,0.30);   L.key.position.set(0,12,20);
+  L.back=new THREE.DirectionalLight(0xffffff,0.18);  L.back.position.set(0,12,-20);
+  L.left=new THREE.DirectionalLight(0xffffff,0.15);  L.left.position.set(-20,8,0);
+  L.right=new THREE.DirectionalLight(0xffffff,0.15); L.right.position.set(20,8,0);
+  L.fill=new THREE.DirectionalLight(0xffffff,0.30);  L.fill.position.set(0,20,0);
+  L.rim=new THREE.DirectionalLight(0xffffff,0);      L.rim.position.set(0,10,-18);
+  Object.values(L).forEach(l=>S.scene.add(l));
+
+  bindOrbit(S.renderer.domElement);
+  new ResizeObserver(resize).observe(stage);
+  resize();
+  (function loop(){
+    requestAnimationFrame(loop);
+    if(S.exportando) return;          // durante la exportación mandamos nosotros
+    updateCamera();
+    S.renderer.render(S.scene,S.camera);
+  })();
+}
+function resize(){
+  const s=$('stage'); if(!s.clientWidth) return;
+  S.renderer.setSize(s.clientWidth,s.clientHeight,false);
+  S.camera.aspect=s.clientWidth/s.clientHeight;
+  S.camera.updateProjectionMatrix();
+}
+function updateCamera(){
+  const o=S.orbit;
+  S.camera.position.set(
+    o.dist*Math.sin(o.phi)*Math.sin(o.theta),
+    o.dist*Math.cos(o.phi),
+    o.dist*Math.sin(o.phi)*Math.cos(o.theta)
+  ).add(o.target);
+  S.camera.lookAt(o.target);
+}
+function fitToView(obj){
+  obj.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(obj);
+  const size=box.getSize(new THREE.Vector3());
+  const center=box.getCenter(new THREE.Vector3());
+  obj.position.x-=center.x; obj.position.y-=center.y; obj.position.z-=center.z;
+
+  const maxDim=Math.max(size.x,size.y,size.z);
+  const fov=S.camera.fov*(Math.PI/180);
+  let dist=Math.abs(maxDim/2/Math.tan(fov/2));
+  dist*=1.20;
+  S.orbit.dist=dist;
+  S.orbit.target.set(0,0,0);
+  S.orbit.theta=0;
+  S.orbit.phi=Math.PI/2-(inclinacionVista||0)*Math.PI/180;
+  S.camera.near=dist/100; S.camera.far=dist*100;
+  S.camera.updateProjectionMatrix();
+}
+function bindOrbit(el){
+  const punteros=new Map();          // id -> {x,y}
+  let btn=0, pinchPrev=0, tapPrev=0;
+
+  const centro=()=>{
+    let x=0,y=0;
+    punteros.forEach(p=>{x+=p.x;y+=p.y;});
+    return {x:x/punteros.size, y:y/punteros.size};
+  };
+  const separacion=()=>{
+    const v=[...punteros.values()];
+    return Math.hypot(v[0].x-v[1].x, v[0].y-v[1].y);
+  };
+  const encuadrar=()=>{ if(S.root){ fitToView(S.root); status('Vista restaurada'); } };
+
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+
+  el.addEventListener('pointerdown',e=>{
+    el.setPointerCapture(e.pointerId);
+    punteros.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    btn=e.button;
+    if(punteros.size===2) pinchPrev=separacion();
+    /* Doble toque: en táctil no llega un dblclick fiable */
+    if(e.pointerType!=='mouse'&&punteros.size===1){
+      const ahora=Date.now();
+      if(ahora-tapPrev<300) encuadrar();
+      tapPrev=ahora;
+    }
+  });
+
+  const soltar=e=>{
+    punteros.delete(e.pointerId);
+    if(punteros.size<2) pinchPrev=0;
+    try{ el.releasePointerCapture(e.pointerId); }catch(err){}
+  };
+  el.addEventListener('pointerup',soltar);
+  el.addEventListener('pointercancel',soltar);
+
+  el.addEventListener('pointermove',e=>{
+    if(!punteros.has(e.pointerId)) return;
+    const antes=punteros.get(e.pointerId);
+    const centroAntes=punteros.size>1?centro():null;
+    punteros.set(e.pointerId,{x:e.clientX,y:e.clientY});
+
+    if(punteros.size>=2){
+      /* Dos dedos: pellizco para zoom y arrastre para desplazar */
+      const sep=separacion();
+      if(pinchPrev>0&&sep>0){
+        S.orbit.dist=Math.max(0.05,Math.min(5000,S.orbit.dist*(pinchPrev/sep)));
+      }
+      pinchPrev=sep;
+      const centroAhora=centro();
+      if(centroAntes){
+        const k=S.orbit.dist*0.0016;
+        const dx=centroAhora.x-centroAntes.x, dy=centroAhora.y-centroAntes.y;
+        const right=new THREE.Vector3().setFromMatrixColumn(S.camera.matrix,0);
+        const up=new THREE.Vector3().setFromMatrixColumn(S.camera.matrix,1);
+        S.orbit.target.addScaledVector(right,-dx*k).addScaledVector(up,dy*k);
+      }
+      return;
+    }
+
+    const dx=e.clientX-antes.x, dy=e.clientY-antes.y;
+    if(btn===2||e.shiftKey){
+      const k=S.orbit.dist*0.0016;
+      const right=new THREE.Vector3().setFromMatrixColumn(S.camera.matrix,0);
+      const up=new THREE.Vector3().setFromMatrixColumn(S.camera.matrix,1);
+      S.orbit.target.addScaledVector(right,-dx*k).addScaledVector(up,dy*k);
+    }else{
+      S.orbit.theta-=dx*0.0056;
+      S.orbit.phi=Math.max(0.08,Math.min(Math.PI-0.08,S.orbit.phi-dy*0.0056));
+    }
+  });
+
+  el.addEventListener('wheel',e=>{
+    e.preventDefault();
+    S.orbit.dist=Math.max(0.05,Math.min(5000,S.orbit.dist*(1+Math.sign(e.deltaY)*0.08)));
+  },{passive:false});
+
+  el.addEventListener('dblclick',e=>{ e.preventDefault(); encuadrar(); });
+}
+
+/* ===============================================================
+   EXPORTACIÓN — imágenes y vídeo
+   Los modos de vídeo replican los del panel de Illustrator.
+=============================================================== */
+const EXPORT={
+  lado:3000,                                   // PNG
+  video:{fps:30, dur:8, lado:1080}
+};
+
+function progreso(pct){
+  const b=$('barra'), f=$('barraFill');
+  if(pct===null){ b.classList.remove('on'); f.style.width='0'; return; }
+  b.classList.add('on'); f.style.width=Math.max(0,Math.min(100,pct))+'%';
+}
+
+/* Cambia el tamaño del buffer sin tocar el tamaño en pantalla */
+async function conLienzo(lado,fn){
+  S.exportando=true;
+  const size=S.renderer.getSize(new THREE.Vector2());
+  const pr=S.renderer.getPixelRatio();
+  const aspect=S.camera.aspect;
+  S.renderer.setPixelRatio(1);
+  S.renderer.setSize(lado,lado,false);
+  S.camera.aspect=1; S.camera.updateProjectionMatrix();
+  try{ return await fn(); }
+  finally{
+    S.renderer.setPixelRatio(pr);
+    S.renderer.setSize(size.x,size.y,false);
+    S.camera.aspect=aspect; S.camera.updateProjectionMatrix();
+    S.exportando=false;
+    resize();
+  }
+}
+
+function situarCamara(theta,phi,dist){
+  const t=S.orbit.target;
+  S.camera.position.set(
+    t.x+dist*Math.sin(phi)*Math.sin(theta),
+    t.y+dist*Math.cos(phi),
+    t.z+dist*Math.sin(phi)*Math.cos(theta)
+  );
+  S.camera.lookAt(t);
+}
+
+function lienzoABlob(){
+  return new Promise(res=>S.renderer.domElement.toBlob(res,'image/png'));
+}
+function descargar(blob,nombre){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=nombre;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+function nombreBase(){
+  const m=S.actual;
+  return ((m&&m.code)||'visor')+'_'+((m&&m.name)||'').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+
+async function exportarCaptura(){
+  if(!S.root) return;
+  const {theta,phi,dist}=S.orbit;
+  await conLienzo(EXPORT.lado,async()=>{
+    situarCamara(theta,phi,dist);
+    S.renderer.render(S.scene,S.camera);
+    const blob=await lienzoABlob();
+    descargar(blob,nombreBase()+'_VISTA.png');
+  });
+  status('Captura guardada a '+EXPORT.lado+' px');
+}
+
+async function exportar4Vistas(){
+  if(!S.root) return;
+  const vistas=[
+    ['FRONTAL', 0],
+    ['LATERAL-DCHO', Math.PI/2],
+    ['TRASERA', Math.PI],
+    ['LATERAL-IZDO', -Math.PI/2]
+  ];
+  const {phi,dist}=S.orbit;
+  const salidas=[];
+  await conLienzo(EXPORT.lado,async()=>{
+    for(let i=0;i<vistas.length;i++){
+      const [nombre,theta]=vistas[i];
+      situarCamara(theta,phi,dist);
+      S.renderer.render(S.scene,S.camera);
+      salidas.push([nombre,await lienzoABlob()]);
+      progreso((i+1)/vistas.length*100);
+      await new Promise(r=>setTimeout(r,0));
+    }
+  });
+  progreso(null);
+
+  /* Las cuatro en un ZIP: el navegador bloquea descargas múltiples seguidas */
+  try{
+    if(!window.JSZip) await loadScript(CDN.jszip);
+    const zip=new JSZip();
+    salidas.forEach(([n,b])=>zip.file(nombreBase()+'_'+n+'.png',b));
+    descargar(await zip.generateAsync({type:'blob'}),nombreBase()+'_4VISTAS.zip');
+    status('4 vistas guardadas en ZIP');
+  }catch(e){
+    salidas.forEach(([n,b],i)=>setTimeout(()=>descargar(b,nombreBase()+'_'+n+'.png'),i*400));
+    status('4 vistas descargadas por separado');
+  }
+}
+
+const MODOS_VIDEO={
+  orbita360:  {suf:'360',   txt:'Órbita 360°'},
+  orbitaCine: {suf:'CINE',  txt:'Órbita cine'},
+  barridoHero:{suf:'HERO',  txt:'Barrido hero'},
+  reveal:     {suf:'REVEAL',txt:'Reveal'}
+};
+
+async function exportarVideo(modo){
+  if(!S.root) return;
+  if(typeof MediaRecorder==='undefined'){ status('Este navegador no puede grabar vídeo',true); return; }
+  const cfg=MODOS_VIDEO[modo]||MODOS_VIDEO.orbita360;
+  const {fps,dur,lado}=EXPORT.video;
+  const total=fps*dur;
+
+  document.querySelectorAll('.vid').forEach(b=>b.disabled=true);
+  status('Grabando '+cfg.txt+'…');
+
+  const radius=S.orbit.dist, a0=S.orbit.theta, phi=S.orbit.phi;
+  const y0=S.orbit.target.y+radius*Math.cos(phi);
+
+  await conLienzo(lado,async()=>{
+    let rec,stream;
+    const trozos=[];
+    try{
+      stream=S.renderer.domElement.captureStream(fps);
+      const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+        .find(m=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'video/webm';
+      try{ rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:16000000}); }
+      catch(e){ rec=new MediaRecorder(stream); }
+    }catch(e){
+      status('No se ha podido iniciar la grabación',true);
+      return;
+    }
+    rec.ondataavailable=e=>{ if(e.data&&e.data.size) trozos.push(e.data); };
+    const parado=new Promise(res=>{ rec.onstop=res; });
+    rec.start();
+
+    let frame=0;
+    await new Promise(res=>{
+      const paso=()=>{
+        const t=frame/total;
+        let ang,r=radius,yy=y0;
+        if(modo==='orbitaCine'){
+          const eased=t*t*(3-2*t);                          // lento, rápido, lento
+          ang=a0+eased*Math.PI*2;
+          yy=y0+Math.sin(t*Math.PI*2)*(radius*0.05);        // vaivén vertical
+          r=radius*(1-0.15*Math.sin(t*Math.PI));            // empuje de zoom
+        }else if(modo==='barridoHero'){
+          const sw=Math.sin(t*Math.PI*2);
+          ang=a0+sw*(Math.PI*65/180);                       // ±65°, nunca la espalda
+          r=radius*(1-0.10*sw*sw);
+          yy=y0+Math.sin(t*Math.PI*4)*(radius*0.03);
+        }else if(modo==='reveal'){
+          const e=1-Math.pow(1-t,3);                        // easeOutCubic
+          r=radius*(0.5+0.5*e);
+          ang=a0+e*(Math.PI*0.55);
+          yy=y0-(radius*0.06)*(1-e);
+        }else{
+          ang=a0+t*Math.PI*2;                               // 360 constante
+        }
+        const tg=S.orbit.target;
+        S.camera.position.set(tg.x+Math.sin(ang)*r, yy, tg.z+Math.cos(ang)*r);
+        S.camera.lookAt(tg);
+        S.renderer.render(S.scene,S.camera);
+        progreso(frame/total*100);
+        frame++;
+        if(frame<=total) requestAnimationFrame(paso); else res();
+      };
+      requestAnimationFrame(paso);
+    });
+
+    await new Promise(r=>setTimeout(r,150));
+    rec.stop();
+    await parado;
+    descargar(new Blob(trozos,{type:'video/webm'}),nombreBase()+'_'+cfg.suf+'.webm');
+  });
+
+  progreso(null);
+  document.querySelectorAll('.vid').forEach(b=>b.disabled=false);
+  status(cfg.txt+' guardado');
+}
+
+
+/* ===============================================================
+   Carga de modelos
+=============================================================== */
+async function fetchJSON(url){
+  const r=await fetch(url,{cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status+' en '+url);
+  const txt=await r.text();
+  const clean=txt.trim().replace(/^[^{[]*?=\s*/,'').replace(/;\s*$/,'');
+  try{ return JSON.parse(clean); }
+  catch(e){ return Function('"use strict";return ('+clean+')')(); }
+}
+
+async function loadLegacyModel(basePath,manifest,diffuseUrl){
+  const group=new THREE.Group();
+  S.materiales=[];
+
+  if(!manifest.exterior) throw new Error('manifest.json sin sección exterior');
+
+  const extCfg=await fetchJSON(basePath+manifest.exterior.config);
+  const extGeoJson=await fetchJSON(basePath+manifest.exterior.geometry);
+  const extGeo=parseLegacyJSON(extGeoJson);
+  const extMat=await buildMaterial(extCfg,basePath,diffuseUrl,true);
+  extMat.userData.layer='exterior';
+  S.materiales.push(extMat);
+  const extMesh=new THREE.Mesh(extGeo,extMat);
+  extMesh.userData.exterior=true;
+  group.add(extMesh);
+
+  if(manifest.interior){
+    try{
+      const intCfg=await fetchJSON(basePath+manifest.interior.config);
+      const intGeo=parseLegacyJSON(await fetchJSON(basePath+manifest.interior.geometry));
+      const intImg=await buscarInterior(basePath);
+      const intMat=await buildMaterial(intCfg,basePath,intImg,false);
+      intMat.userData.layer='interior';
+      S.materiales.push(intMat);
+      const intMesh=new THREE.Mesh(intGeo,intMat);
+      intMesh.userData.interior=true;
+      intMesh.visible=true;
+      group.add(intMesh);
+    }catch(e){ console.warn('Interior omitido:',e); }
+  }
+
+  /* Los modelos legacy vienen de 3ds Max (Z-up). Three.js usa Y-up. */
+  group.rotation.x=-Math.PI/2;
+  return group;
+}
+
+/* Busca en la carpeta del modelo una imagen cuyo nombre contenga INTERIOR */
+async function buscarInterior(basePath){
+  try{
+    const res=await fetch(basePath,{cache:'no-store'});
+    if(!res.ok) return null;
+    if(!(res.headers.get('content-type')||'').includes('text/html')) return null;
+    const raiz=new URL(basePath,location.href);
+    const doc=new DOMParser().parseFromString(await res.text(),'text/html');
+    for(const a of doc.querySelectorAll('a[href]')){
+      let u; try{ u=new URL(a.getAttribute('href'),raiz.href); }catch(e){ continue; }
+      const hoja=decodeURIComponent(u.pathname).split('/').pop();
+      if(/interior/i.test(hoja)&&/\.(jpe?g|png)$/i.test(hoja)) return u.href;
+    }
+  }catch(e){}
+  return null;
+}
+
+async function loadGLBModel(basePath,manifest,codigo,diffuseUrl){
+  const url=basePath+(manifest.file||codigo+'.glb');
+  const gltf=await new Promise((res,rej)=>new THREE.GLTFLoader().load(url,res,undefined,rej));
+  const obj=gltf.scene;
+  S.materiales=[];
+  obj.traverse(n=>{ if(n.isMesh&&n.material) S.materiales.push(n.material); });
+  if(diffuseUrl){
+    const tex=await cargarTextura(diffuseUrl);
+    tex.flipY=false;
+    prepararTexturaColor(tex);
+    obj.traverse(n=>{
+      if(n.isMesh&&n.material){
+        n.material.map=tex;
+        n.material.emissive=new THREE.Color(0xffffff);
+        n.material.emissiveMap=tex;
+        n.material.emissiveIntensity=vivacidad;
+        n.material.needsUpdate=true;
+      }
+    });
+  }
+  return obj;
+}
+
+function contarTris(obj){
+  let t=0;
+  obj.traverse(n=>{
+    if(n.isMesh&&n.geometry&&n.geometry.attributes.position){
+      t += n.geometry.index ? n.geometry.index.count/3 : n.geometry.attributes.position.count/3;
+    }
+  });
+  return Math.round(t);
+}
+/* ===============================================================
+   Galería del cliente
+=============================================================== */
+const token=(new URLSearchParams(location.search).get('c')||location.hash.slice(1)||'').trim();
+const CARPETA='c/'+token+'/';
+let ficha=null;
+
+function aviso(titulo,texto){
+  $('aviso').hidden=false; $('main').hidden=true;
+  $('avisoTitulo').textContent=titulo;
+  $('avisoTexto').textContent=texto||'';
+}
+
+async function detectarBase(codigo){
+  for(const b of CONFIG.bases){
+    try{
+      const r=await fetch(b+codigo+'/'+CONFIG.manifiesto,{method:'HEAD'});
+      if(r.ok) return b;
+    }catch(e){}
+  }
+  return CONFIG.bases[0];
+}
+
+async function abrirDiseno(d,boton){
+  document.querySelectorAll('.item').forEach(b=>b.setAttribute('aria-current','false'));
+  if(boton) boton.setAttribute('aria-current','true');
+  S.actual={code:d.modelo,name:d.modelo_nombre||d.titulo};
+  S.designURL=CARPETA+d.diseno;
+  status('Cargando prenda…');
+
+  if(S.root){ S.scene.remove(S.root); S.root=null; }
+  S.materiales=[];
+  try{
+    if(!S.base) S.base=await detectarBase(d.modelo);
+    const basePath=S.base+d.modelo+'/';
+    const manifest=await fetchJSON(basePath+CONFIG.manifiesto);
+    const obj=(manifest.format==='glb')
+      ? await loadGLBModel(basePath,manifest,d.modelo,S.designURL)
+      : await loadLegacyModel(basePath,manifest,S.designURL);
+    S.root=obj; S.scene.add(obj);
+    fitToView(obj);
+    if(d.camara){
+      if(typeof d.camara.theta==='number') S.orbit.theta=d.camara.theta;
+      if(typeof d.camara.phi==='number')   S.orbit.phi=d.camara.phi;
+      if(typeof d.camara.dist==='number')  S.orbit.dist=d.camara.dist;
+      if(typeof d.camara.luzKey==='number')  S.luces.key.intensity=d.camara.luzKey;
+      if(typeof d.camara.luzFill==='number') S.luces.fill.intensity=d.camara.luzFill;
+    }
+    aplicarColor();
+    status(d.titulo);
+  }catch(e){
+    console.error(e);
+    status('No se ha podido cargar la prenda',true);
+  }
+}
+
+async function arrancar(){
+  if(!token){ aviso('Enlace incompleto','Abre el enlace completo que te hemos enviado.'); return; }
+  try{ ficha=await fetchJSON(CARPETA+'galeria.json'); }
+  catch(e){ aviso('Enlace no válido','Comprueba que has copiado el enlace entero.'); return; }
+
+  $('aviso').hidden=true; $('main').hidden=false;
+  $('quien').textContent=ficha.cliente||'';
+  document.title=(ficha.cliente? ficha.cliente+' · ':'')+'Tus diseños';
+
+  try{
+    await loadScript(CDN.three);
+    await loadScript(CDN.gltf);
+  }catch(e){ aviso('Sin conexión','No se ha podido cargar el visor 3D.'); return; }
+  initThree();
+
+  const tira=$('tira');
+  tira.innerHTML='';
+  (ficha.disenos||[]).forEach((d,i)=>{
+    const b=document.createElement('button');
+    b.className='item';
+    b.setAttribute('aria-current','false');
+    b.innerHTML='<div class="shot"></div><div class="tit">'+d.titulo+'</div>';
+    const img=document.createElement('img');
+    img.alt=''; img.loading='lazy';
+    img.onload=()=>img.classList.add('on');
+    b.querySelector('.shot').appendChild(img);
+    img.src=CARPETA+(d.preview||d.diseno);
+    b.onclick=()=>abrirDiseno(d,b);
+    tira.appendChild(b);
+    if(i===0) setTimeout(()=>abrirDiseno(d,b),0);
+  });
+  if(!(ficha.disenos||[]).length) status('Todavía no hay diseños');
+}
+
+$('btnPng').onclick=exportarCaptura;
+$('btn4').onclick=exportar4Vistas;
+
+arrancar();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "modelos": [
+    {
+      "codigo": "0917",
+      "nombre": "PANTALON CORTO ENERGY UNI 0917",
+      "carpeta": "0917",
+      "formato": "legacy"
+    },
+    {
+      "codigo": "1001",
+      "nombre": "CAMISETA HOM PADEL 1001",
+      "carpeta": "1001",
+      "formato": "glb"
+    },
+    {
+      "codigo": "1756",
+      "nombre": "CAMISETA MC NATIVE UNI 1756",
+      "carpeta": "1756",
+      "formato": "legacy"
+    }
+  ]
+}

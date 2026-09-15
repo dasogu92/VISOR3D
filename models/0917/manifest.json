@@ -1,0 +1,13 @@
+{
+  "formato": "legacy",
+  "codigo": "0917",
+  "exterior": {
+    "geometry": "PANTALON CORTO ENERGY UNI 0917.js",
+    "config": "PANTALON CORTO ENERGY UNI 0917.json"
+  },
+  "interior": {
+    "geometry": "PANTALON CORTO ENERGY UNI 0917-INTERIOR.js",
+    "config": "PANTALON CORTO ENERGY UNI 0917-INTERIOR.json"
+  },
+  "nombre": "PANTALON CORTO ENERGY UNI 0917"
+}

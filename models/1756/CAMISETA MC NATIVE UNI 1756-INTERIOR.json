@@ -1,0 +1,85 @@
+{
+    "type": "PhongMaterial",
+    "modelo": "CAMISETA MC NATIVE UNI 1756-INTERIOR.js",
+    "map": "CAMISETA MC NATIVE UNI 1756 U-INTERIOR.jpg",
+    "tejido": "",
+    "transparent": false,
+    "opacity": 1,
+    "normalMap": "CAMISETA MC NATIVE UNI 1756 U_NORMALMAP.jpg",
+    "normalScale": {
+        "x": 1,
+        "y": 1
+    },
+    "alphaMap": "",
+    "specularMap": "",
+    "specular": {
+        "r": 0.3,
+        "g": 0.3,
+        "b": 0.3
+    },
+    "shininess": 8,
+    "color": {
+        "r": 1,
+        "g": 1,
+        "b": 1
+    },
+    "side": 0,
+    "visible": true,
+    "wireframe": false,
+    "lightMap": "",
+    "lightMapIntensity": 1,
+    "aoMap": "",
+    "aoMapIntensity": 1,
+    "emissive": {
+        "r": 0,
+        "g": 0,
+        "b": 0
+    },
+    "emissiveIntensity": 1,
+    "emissiveMap": "",
+    "bumpMap": "",
+    "bumpScale": 1,
+    "displacementMap": "",
+    "displacementScale": 1,
+    "displacementBias": 0,
+    "envMap": [],
+    "combine": 0,
+    "reflectivity": 1,
+    "refractionRatio": 0,
+    "alphaTest": 0,
+    "depthTest": true,
+    "depthWrite": true,
+    "autoEnv": false,
+    "env360": false,
+    "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    },
+    "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+    },
+    "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+    },
+    "editables": {
+        "material": true,
+        "map": true,
+        "transparent": true,
+        "opacity": true,
+        "normalMap": true,
+        "normalScale": true,
+        "alphaMap": true,
+        "specularMap": true,
+        "specular": true,
+        "shininess": true,
+        "color": true,
+        "position": true,
+        "rotation": true,
+        "scale": true
+    }
+}

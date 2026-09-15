@@ -1,0 +1,13 @@
+{
+  "formato": "legacy",
+  "codigo": "1756",
+  "exterior": {
+    "geometry": "CAMISETA MC NATIVE UNI 1756.js",
+    "config": "CAMISETA MC NATIVE UNI 1756.json"
+  },
+  "interior": {
+    "geometry": "CAMISETA MC NATIVE UNI 1756-INTERIOR.js",
+    "config": "CAMISETA MC NATIVE UNI 1756-INTERIOR.json"
+  },
+  "nombre": "CAMISETA MC NATIVE UNI 1756"
+}
