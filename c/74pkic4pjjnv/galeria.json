@@ -1,0 +1,20 @@
+{
+  "cliente": "RUMM MAR MENOR",
+  "creado": "2026-09-15",
+  "disenos": [
+    {
+      "titulo": "RUMM MAR MENOR",
+      "modelo": "0917",
+      "modelo_nombre": "PANTALON CORTO ENERGY UNI 0917",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": -5.0287999999999995,
+        "phi": 1.2177166941154065,
+        "dist": 63.32945899406966,
+        "luzKey": 0.3,
+        "luzFill": 0.3
+      }
+    }
+  ]
+}
