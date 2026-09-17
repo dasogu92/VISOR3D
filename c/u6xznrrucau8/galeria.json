@@ -1,0 +1,20 @@
+{
+  "cliente": "jose",
+  "creado": "2026-09-17",
+  "disenos": [
+    {
+      "titulo": "diseño negro",
+      "modelo": "1756",
+      "modelo_nombre": "CAMISETA MC NATIVE UNI 1756",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": 0.0839999999999993,
+        "phi": 1.2737166941154072,
+        "dist": 106.36007728249605,
+        "luzKey": 0.3,
+        "luzFill": 0.3
+      }
+    }
+  ]
+}
