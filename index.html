@@ -170,6 +170,86 @@
   .hint{position:absolute;right:16px;bottom:14px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
   .hint.tactil{display:none}
 
+  .cargando{
+    position:fixed;inset:0;background:rgba(255,255,255,.96);z-index:60;
+    display:flex;align-items:center;justify-content:center;padding:var(--pad);
+  }
+  .cargando[hidden]{display:none}
+  .cajaCarga{width:min(460px,100%);text-align:center}
+  .cargaTit{
+    margin:0;font-size:15px;letter-spacing:.2em;text-transform:uppercase;font-weight:700;
+  }
+  .cargaSub{
+    margin:10px 0 0;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+    min-height:1.4em;
+  }
+  .cargaSub.err{color:var(--accent)}
+  .cargaBarra{height:2px;background:var(--rule);margin-top:22px;overflow:hidden}
+  .cargaBarra i{
+    display:block;height:100%;width:0;background:var(--accent);transition:width .2s linear;
+  }
+  .cargaBarra.indet i{
+    width:35%;animation:vaiven 1.1s ease-in-out infinite;
+  }
+  @keyframes vaiven{
+    0%{transform:translateX(-100%)} 100%{transform:translateX(320%)}
+  }
+  @media (prefers-reduced-motion:reduce){ .cargaBarra.indet i{animation:none;width:100%} }
+  .cargaEnlace{
+    margin:20px 0 0;font-size:11px;letter-spacing:.02em;color:var(--muted);word-break:break-all;
+  }
+  .cargaBtns{display:flex;gap:8px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+  .campoGrande{
+    width:100%;margin-top:22px;border:none;border-bottom:1px solid var(--ink);
+    background:none;color:inherit;padding:8px 0;font:inherit;font-size:15px;
+    letter-spacing:.06em;text-align:center;
+  }
+  .campoGrande:focus{outline:none;border-bottom-color:var(--accent)}
+
+  .modal{
+    position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;
+    display:flex;align-items:center;justify-content:center;padding:var(--pad);
+  }
+  .modal[hidden]{display:none}
+  .caja{
+    background:var(--paper);border:1px solid var(--ink);
+    width:min(720px,100%);max-height:86vh;display:flex;flex-direction:column;
+  }
+  .cabecera{
+    display:flex;align-items:center;gap:12px;padding:16px var(--pad);
+    border-bottom:1px solid var(--rule);position:relative;
+  }
+  .cabecera h2{margin:0;flex:1;font-size:13px;letter-spacing:.18em;text-transform:uppercase}
+  .cerrar{
+    background:none;border:none;cursor:pointer;font-size:20px;line-height:1;
+    color:var(--muted);padding:2px 4px;
+  }
+  .cerrar:hover{color:var(--accent)}
+  .cuerpo{overflow-y:auto;padding:6px var(--pad) var(--pad)}
+  .cli{border-bottom:1px solid var(--rule);padding:16px 0}
+  .cli:last-child{border-bottom:none}
+  .cliTop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .cliNom{font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+  .cliNum{font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+  .cliNum.pub{color:var(--accent)}
+  .cliBtns{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .cliBtns .ghost{padding:6px 10px}
+  .dis{
+    display:flex;align-items:center;gap:10px;padding:7px 0 0;
+    font-size:11px;letter-spacing:.04em;color:var(--muted);
+  }
+  .dis span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dis button{
+    background:none;border:none;cursor:pointer;color:var(--muted);
+    font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:2px 4px;
+  }
+  .dis button:hover{color:var(--accent)}
+  .vacio{padding:22px 0;color:var(--muted);text-align:center}
+  .enlace{
+    margin-top:8px;font-size:10px;letter-spacing:.04em;color:var(--muted);
+    word-break:break-all;
+  }
+
   .toast{
     position:fixed;left:50%;bottom:52px;transform:translateX(-50%);
     background:var(--ink);color:var(--paper);padding:11px 18px;
@@ -232,6 +312,9 @@
     .hint{display:none}
     .hint.tactil{display:block;right:auto;left:var(--pad);bottom:10px;font-size:9px}
     .toast{bottom:20px;font-size:9px;padding:10px 14px}
+    .caja{max-height:92vh}
+    .cliBtns{margin-left:0;width:100%}
+    .cliBtns .ghost{flex:1 1 auto;text-align:center}
     .status{bottom:26px;font-size:9px;max-width:90%}
   }
 
@@ -318,16 +401,16 @@
     </fieldset>
 
     <fieldset id="fsCliente">
-      <legend>Galería de cliente</legend>
+      <legend>Enlace privado</legend>
       <div class="row">
         <label for="tituloDis">Título</label>
         <input class="campo" id="tituloDis" type="text" placeholder="Nombre del diseño">
       </div>
       <div class="actions" style="margin-top:12px">
-        <button class="ghost" id="btnAddGaleria">Añadir a galería</button>
-        <button class="ghost" id="btnVerGaleria">Ver galería</button>
+        <button class="ghost solid" id="btnSubirPrivado">Subir a enlace privado</button>
+        <button class="ghost" id="btnClientes">Clientes</button>
       </div>
-      <p class="nota" id="notaGaleria">Galería vacía.</p>
+      <p class="nota" id="notaGaleria">Sin clientes todavía.</p>
     </fieldset>
 
     <fieldset>
@@ -363,6 +446,45 @@
     <p class="hint tactil">Un dedo: girar · Dos dedos: zoom y mover · Doble toque: vista inicial</p>
   </div>
 </section>
+
+<div class="cargando" id="dlgNombre" hidden>
+  <div class="cajaCarga">
+    <p class="cargaTit">¿Para qué cliente?</p>
+    <p class="cargaSub">Si ya existe, el diseño se añade a su enlace</p>
+    <input class="campoGrande" id="dlgInput" list="listaClientes" placeholder="Nombre del cliente" autocomplete="off">
+    <datalist id="listaClientes"></datalist>
+    <p class="cargaSub" id="dlgPista"></p>
+    <div class="cargaBtns">
+      <button class="ghost" id="dlgCancelar">Cancelar</button>
+      <button class="ghost solid" id="dlgAceptar">Continuar</button>
+    </div>
+  </div>
+</div>
+
+<div class="cargando" id="cargando" hidden>
+  <div class="cajaCarga">
+    <p class="cargaTit" id="cargaTit">Publicando</p>
+    <p class="cargaSub" id="cargaSub">Preparando archivos…</p>
+    <div class="cargaBarra"><i id="cargaFill"></i></div>
+    <p class="cargaEnlace" id="cargaEnlace" hidden></p>
+    <div class="cargaBtns" id="cargaBtns" hidden>
+      <button class="ghost" id="cargaCopiar">Copiar enlace</button>
+      <button class="ghost" id="cargaAbrir">Abrir</button>
+      <button class="ghost solid" id="cargaCerrar">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="caja">
+    <div class="cabecera">
+      <h2>Clientes</h2>
+      <button class="ghost" id="btnNuevoCli">Nuevo cliente</button>
+      <button class="cerrar" id="cerrarModal" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="cuerpo" id="listaClientes"></div>
+  </div>
+</div>
 
 <p class="toast" id="toast" hidden></p>
 <div class="ticker" aria-hidden="true"><div id="tickerTrack"></div></div>
@@ -1654,84 +1776,304 @@ async function exportarVideo(modo){
 }
 
 /* ===============================================================
-   GALERÍA DE CLIENTE
-   Se acumulan diseños y se exporta una carpeta lista para subir al
-   repositorio. Cada cliente recibe un enlace con su carpeta; no existe
-   ningún índice que liste las demás.
+   CLIENTES Y SUS DISEÑOS
+   Cada cliente tiene un token fijo. Publicar actualiza SU carpeta,
+   así que el enlace que ya le mandaste sigue valiendo y se le añaden
+   los diseños nuevos.
 =============================================================== */
-const GAL={store:'galeria'};
-let galeria=[];
+let clientes=[];              // [{token,nombre,creado,publicado,disenos:[…]}]
 
-async function galeriaCargar(){
+async function clientesCargar(){
   try{
-    let rec=await idbGet(DB.galeria,'items');
-    if(!rec){
-      /* Versiones anteriores la guardaban junto a los modelos */
-      const viejo=await idbGet(DB.store,'__galeria__').catch(()=>null);
-      if(viejo&&viejo.items){
-        rec={items:viejo.items};
-        await idbSet(DB.galeria,{code:'items',items:viejo.items});
-        await idbBorrar(DB.store,'__galeria__');
+    const rec=await idbGet(DB.galeria,'clientes');
+    clientes=(rec&&rec.items)||[];
+    if(!clientes.length){
+      /* Migración de la galería única anterior */
+      const viejo=await idbGet(DB.galeria,'items').catch(()=>null);
+      if(viejo&&viejo.items&&viejo.items.length){
+        clientes=[{token:nuevoToken(),nombre:'Sin asignar',
+                   creado:new Date().toISOString(),publicado:false,
+                   disenos:viejo.items.map(conId)}];
+        await clientesGuardar();
       }
     }
-    galeria=(rec&&rec.items)||[];
-  }catch(e){ galeria=[]; }
-  galeriaPintar();
+  }catch(e){ clientes=[]; }
+  clientesPintar();
 }
-async function galeriaGuardar(){
-  try{ await idbSet(DB.galeria,{code:'items',items:galeria}); }catch(e){}
-  galeriaPintar();
-}
-function galeriaPintar(){
-  const n=galeria.length;
-  $('notaGaleria').textContent = n
-    ? n+' diseño'+(n===1?'':'s')+' preparado'+(n===1?'':'s')
-    : 'Galería vacía.';
-  $('btnVerGaleria').disabled=!n;
+function conId(d){ d.id=d.id||nuevoToken().slice(0,8); return d; }
+
+async function clientesGuardar(){
+  try{ await idbSet(DB.galeria,{code:'clientes',items:clientes}); }catch(e){}
+  clientesPintar();
 }
 
-async function galeriaAnadir(){
+function clientesPintar(){
+  const lista=$('listaClientes');
+  lista.innerHTML='';
+  clientes.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.nombre;
+    lista.appendChild(o);
+  });
+
+  const total=clientes.reduce((n,c)=>n+c.disenos.length,0);
+  $('notaGaleria').textContent = clientes.length
+    ? clientes.length+' cliente'+(clientes.length===1?'':'s')+' · '+total+' diseño'+(total===1?'':'s')
+    : 'Sin clientes todavía.';
+  if(!$('modal').hidden) modalPintar();
+}
+
+function clientePorToken(t){ return clientes.find(c=>c.token===t); }
+
+function nuevoToken(){
+  const b=crypto.getRandomValues(new Uint8Array(12));
+  const abc='abcdefghijkmnpqrstuvwxyz23456789';   // sin l, o, 0, 1
+  return Array.from(b,x=>abc[x%32]).join('');
+}
+function enlaceDe(token){
+  return new URL('ver.html?c='+token,location.href).href;
+}
+
+async function nuevoCliente(){
+  const nombre=prompt('Nombre del cliente:','');
+  if(nombre===null) return null;
+  const c={
+    token:nuevoToken(), nombre:(nombre||'').trim()||'Cliente',
+    creado:new Date().toISOString(), publicado:false, disenos:[]
+  };
+  clientes.push(c);
+  await clientesGuardar();
+  return c;
+}
+
+/* ---------------- diálogo de nombre ---------------- */
+const clave=t=>(t||'').trim().toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+function pedirNombreCliente(){
+  return new Promise(res=>{
+    const dlg=$('dlgNombre'), inp=$('dlgInput'), pista=$('dlgPista');
+    inp.value=''; pista.textContent='';
+    dlg.hidden=false;
+    setTimeout(()=>inp.focus(),30);
+
+    const revisar=()=>{
+      const c=clientes.find(x=>clave(x.nombre)===clave(inp.value));
+      pista.textContent = c
+        ? 'Se añadirá a su enlace, que ya tiene '+c.disenos.length+' diseño'+(c.disenos.length===1?'':'s')
+        : (inp.value.trim()? 'Cliente nuevo: se creará un enlace' : '');
+    };
+    const cerrar=v=>{
+      dlg.hidden=true;
+      inp.oninput=null; inp.onkeydown=null;
+      res(v);
+    };
+    inp.oninput=revisar;
+    inp.onkeydown=e=>{
+      if(e.key==='Enter'){ e.preventDefault(); if(inp.value.trim()) cerrar(inp.value.trim()); }
+      if(e.key==='Escape') cerrar(null);
+    };
+    $('dlgAceptar').onclick=()=>{ if(inp.value.trim()) cerrar(inp.value.trim()); else inp.focus(); };
+    $('dlgCancelar').onclick=()=>cerrar(null);
+  });
+}
+
+/* ---------------- subir a enlace privado, todo de una ---------------- */
+async function subirAEnlacePrivado(){
   if(!S.actual){ status('Abre un modelo primero',true); return; }
   if(!S.designFile){ status('Sube antes el diseño',true); return; }
-  const btn=$('btnAddGaleria'); btn.disabled=true;
-  status('Preparando…');
+  if(!ghToken() && !pedirToken()) return;
+
+  const nombre=await pedirNombreCliente();
+  if(!nombre) return;
+
+  let c=clientes.find(x=>clave(x.nombre)===clave(nombre));
+  if(!c){
+    c={token:nuevoToken(),nombre:nombre.trim(),creado:new Date().toISOString(),
+       publicado:false,disenos:[]};
+    clientes.push(c);
+  }
+
+  cargaMostrar('Preparando','Generando la vista previa…');
   try{
+    await anadirDisenoA(c);
+    await clientesGuardar();
+    await publicarCliente(c,{abrir:true});
+  }catch(e){
+    cargaError(e.message);
+  }
+}
+
+/* ---------------- añadir el diseño actual a un cliente ---------------- */
+async function anadirDisenoA(c){
+  {
     const preview=await conLienzo(1200,async()=>{
       const {theta,phi,dist}=S.orbit;
       situarCamara(theta,phi,dist);
       S.renderer.render(S.scene,S.camera);
       return await lienzoABlob();
     });
-    galeria.push({
+    /* Copia del contenido: el File apunta a un archivo del disco y deja de
+       poder leerse si se mueve o si el navegador pierde el permiso. */
+    const copia=new Blob([await S.designFile.arrayBuffer()],
+                         {type:S.designFile.type||'image/jpeg'});
+    c.disenos.push(conId({
       titulo:($('tituloDis').value||'').trim()||S.actual.name||'Sin título',
       modelo:S.actual.code,
       modelo_nombre:S.actual.name||'',
-      disenoBlob:S.designFile,
+      disenoBlob:copia,
       disenoNombre:S.designFile.name||'diseno.jpg',
       previewBlob:preview,
       camara:{
         theta:S.orbit.theta, phi:S.orbit.phi, dist:S.orbit.dist,
         luzKey:S.luces.key.intensity, luzFill:S.luces.fill.intensity
       }
-    });
-    await galeriaGuardar();
+    }));
     $('tituloDis').value='';
-    toast('Añadido a la galería ('+galeria.length+')');
-    status('Añadido a la galería');
-  }catch(e){ status(e.message,true); }
-  finally{ btn.disabled=false; }
+  }
 }
 
-/* Nombre de carpeta imposible de adivinar por fuerza bruta */
-function nuevoToken(){
-  const b=crypto.getRandomValues(new Uint8Array(12));
-  const abc='abcdefghijkmnpqrstuvwxyz23456789';   // sin l, o, 0, 1
-  return Array.from(b,x=>abc[x%32]).join('');
+/* ---------------- ventana de clientes ---------------- */
+function modalPintar(){
+  const cont=$('listaClientes');
+  cont.innerHTML='';
+  if(!clientes.length){
+    cont.innerHTML='<p class="vacio">Crea un cliente para empezar.</p>';
+    return;
+  }
+  clientes.forEach(c=>{
+    const div=document.createElement('div');
+    div.className='cli';
+    div.innerHTML=`
+      <div class="cliTop">
+        <span class="cliNom">${c.nombre}</span>
+        <span class="cliNum ${c.publicado?'pub':''}">
+          ${c.disenos.length} diseño${c.disenos.length===1?'':'s'} · ${c.publicado?'publicado':'sin publicar'}
+        </span>
+        <span class="cliBtns">
+          <button class="ghost" data-a="publicar">Publicar</button>
+          <button class="ghost" data-a="enlace">Copiar enlace</button>
+          <button class="ghost" data-a="renombrar">Renombrar</button>
+          <button class="ghost" data-a="borrar">Eliminar</button>
+        </span>
+      </div>
+      ${c.publicado?`<p class="enlace">${enlaceDe(c.token)}</p>`:''}`;
+
+    c.disenos.forEach(d=>{
+      const fila=document.createElement('div');
+      fila.className='dis';
+      fila.innerHTML=`<span>${d.titulo} — ${d.modelo_nombre||d.modelo}</span>
+                      <button data-d="${d.id}">Quitar</button>`;
+      fila.querySelector('button').onclick=async()=>{
+        c.disenos=c.disenos.filter(x=>x.id!==d.id);
+        await clientesGuardar();
+      };
+      div.appendChild(fila);
+    });
+
+    div.querySelectorAll('.cliBtns .ghost').forEach(b=>{
+      b.onclick=()=>accionCliente(c,b.dataset.a);
+    });
+    cont.appendChild(div);
+  });
 }
+
+async function accionCliente(c,accion){
+  if(accion==='publicar'){ publicarCliente(c,{abrir:true}); return; }
+  if(accion==='enlace'){
+    await copiar(enlaceDe(c.token));
+    toast(c.publicado?'Enlace copiado':'Enlace copiado, pero aún sin publicar');
+    return;
+  }
+  if(accion==='renombrar'){
+    const n=prompt('Nombre del cliente:',c.nombre);
+    if(n===null) return;
+    c.nombre=(n||'').trim()||c.nombre;
+    await clientesGuardar();
+    return;
+  }
+  if(accion==='borrar'){
+    if(!confirm('Eliminar '+c.nombre+' y sus '+c.disenos.length+' diseño(s)?\n\n'+
+                (c.publicado?'Su enlace dejará de actualizarse, pero los archivos ya publicados\nseguirán en el repositorio hasta que los borres desde GitHub.':'')))
+      return;
+    clientes=clientes.filter(x=>x.token!==c.token);
+    await clientesGuardar();
+  }
+}
+
+$('btnSubirPrivado').onclick=subirAEnlacePrivado;
+$('btnClientes').onclick=()=>{ $('modal').hidden=false; modalPintar(); };
+$('cerrarModal').onclick=()=>{ $('modal').hidden=true; };
+$('modal').onclick=e=>{ if(e.target===$('modal')) $('modal').hidden=true; };
+$('btnNuevoCli').onclick=nuevoCliente;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('modal').hidden=true; });
 
 /* ---------------------------------------------------------------
-   Publicación directa en GitHub
-   El token vive solo en este navegador, nunca en el código.
+   Pantalla de carga
+--------------------------------------------------------------- */
+function cargaMostrar(titulo,sub){
+  $('cargaTit').textContent=titulo;
+  $('cargaSub').textContent=sub||'';
+  $('cargaSub').classList.remove('err');
+  $('cargaEnlace').hidden=true;
+  $('cargaBtns').hidden=true;
+  $('cargaFill').style.width='0';
+  document.querySelector('.cargaBarra').classList.add('indet');
+  $('cargando').hidden=false;
+}
+function cargaPaso(sub,pct){
+  $('cargaSub').textContent=sub;
+  const barra=document.querySelector('.cargaBarra');
+  if(typeof pct==='number'){
+    barra.classList.remove('indet');
+    $('cargaFill').style.width=Math.max(0,Math.min(100,pct))+'%';
+  }else{
+    barra.classList.add('indet');
+  }
+}
+function cargaExito(titulo,sub,enlace){
+  $('cargaTit').textContent=titulo;
+  $('cargaSub').textContent=sub||'';
+  $('cargaSub').classList.remove('err');
+  document.querySelector('.cargaBarra').classList.remove('indet');
+  $('cargaFill').style.width='100%';
+  if(enlace){
+    $('cargaEnlace').textContent=enlace;
+    $('cargaEnlace').hidden=false;
+    $('cargaAbrir').hidden=false;
+    $('cargaCopiar').hidden=false;
+    $('cargando').dataset.enlace=enlace;
+  }else{
+    $('cargaAbrir').hidden=true;
+    $('cargaCopiar').hidden=true;
+  }
+  $('cargaBtns').hidden=false;
+}
+function cargaError(msg){
+  $('cargaTit').textContent='No se ha podido publicar';
+  $('cargaSub').textContent=msg;
+  $('cargaSub').classList.add('err');
+  document.querySelector('.cargaBarra').classList.remove('indet');
+  $('cargaFill').style.width='0';
+  $('cargaEnlace').hidden=true;
+  $('cargaAbrir').hidden=true;
+  $('cargaCopiar').hidden=true;
+  $('cargaBtns').hidden=false;
+}
+$('cargaCerrar').onclick=()=>{ $('cargando').hidden=true; };
+$('cargaCopiar').onclick=async()=>{
+  await copiar($('cargando').dataset.enlace||'');
+  $('cargaCopiar').textContent='Copiado';
+  setTimeout(()=>{$('cargaCopiar').textContent='Copiar enlace';},1600);
+};
+$('cargaAbrir').onclick=()=>{
+  const u=$('cargando').dataset.enlace;
+  if(u) window.open(u,'_blank');
+};
+
+/* ---------------------------------------------------------------
+   Publicación en GitHub
+   El token de GitHub vive solo en este navegador, nunca en el código.
 --------------------------------------------------------------- */
 const TOKEN_STORE='visor3d_gh_token';
 const ghToken=()=>localStorage.getItem(TOKEN_STORE)||'';
@@ -1755,18 +2097,15 @@ function blobABase64(blob){
   return new Promise((res,rej)=>{
     const r=new FileReader();
     r.onload=()=>res(String(r.result).split(',')[1]);
-    r.onerror=()=>rej(new Error('No se ha podido leer el archivo'));
+    r.onerror=()=>rej(new Error(
+      'No se ha podido leer el diseño guardado. Quítalo y vuelve a añadirlo.'));
     r.readAsDataURL(blob);
   });
 }
 
 async function ghSubir(ruta,blob,mensaje){
   const url=`https://api.github.com/repos/${GH.usuario}/${GH.repo}/contents/${ruta}`;
-  const cuerpo={
-    message:mensaje,
-    content:await blobABase64(blob),
-    branch:GH.rama
-  };
+  const cuerpo={message:mensaje,content:await blobABase64(blob),branch:GH.rama};
   /* Si el archivo ya existe hay que mandar su sha para reemplazarlo */
   try{
     const prev=await fetch(url+'?ref='+GH.rama,{headers:{Authorization:'Bearer '+ghToken()}});
@@ -1782,8 +2121,8 @@ async function ghSubir(ruta,blob,mensaje){
     },
     body:JSON.stringify(cuerpo)
   });
-  if(res.status===401) throw new Error('Token no válido o caducado');
-  if(res.status===403) throw new Error('El token no tiene permiso de escritura en el repositorio');
+  if(res.status===401) throw new Error('Token de GitHub no válido o caducado');
+  if(res.status===403) throw new Error('El token no tiene permiso de escritura');
   if(res.status===404) throw new Error('Repositorio no encontrado: revisa GH.usuario y GH.repo');
   if(!res.ok){
     let m='HTTP '+res.status;
@@ -1793,24 +2132,32 @@ async function ghSubir(ruta,blob,mensaje){
   return res.json();
 }
 
-async function galeriaPublicar(){
-  if(!galeria.length) return;
+/* GitHub Pages tarda en republicar: esperamos a que el archivo responda
+   antes de abrir el enlace, para no enseñar un 404 al usuario. */
+async function esperarPublicacion(token,segundos){
+  const url=new URL('c/'+token+'/galeria.json',location.href).href;
+  const hasta=Date.now()+(segundos||180)*1000;
+  while(Date.now()<hasta){
+    const quedan=Math.ceil((hasta-Date.now())/1000);
+    cargaPaso('Esperando a que GitHub publique… '+quedan+' s');
+    try{
+      const r=await fetch(url+'?t='+Date.now(),{cache:'no-store'});
+      if(r.ok) return true;
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,4000));
+  }
+  return false;
+}
+
+async function publicarCliente(c,opciones){
+  if(!c.disenos.length){ alert('Este cliente no tiene diseños.'); return; }
   if(!ghToken() && !pedirToken()) return;
 
-  const cliente=prompt('Nombre del cliente:','');
-  if(cliente===null) return;
-
-  const token=nuevoToken();
-  const carpeta='c/'+token+'/';
-  const ficha={
-    cliente:(cliente||'').trim()||'Cliente',
-    creado:new Date().toISOString().slice(0,10),
-    disenos:[]
-  };
-
-  /* Se prepara todo antes de subir nada */
+  const carpeta='c/'+c.token+'/';
+  const ficha={cliente:c.nombre, creado:new Date().toISOString().slice(0,10), disenos:[]};
   const archivos=[];
-  galeria.forEach((d,i)=>{
+
+  c.disenos.forEach((d,i)=>{
     const ext=(d.disenoNombre.split('.').pop()||'jpg').toLowerCase();
     const fD='diseno-'+(i+1)+'.'+ext;
     const fP='preview-'+(i+1)+'.png';
@@ -1824,24 +2171,47 @@ async function galeriaPublicar(){
   archivos.push([carpeta+'galeria.json',
     new Blob([JSON.stringify(ficha,null,2)],{type:'application/json'})]);
 
+  $('modal').hidden=true;
+  cargaMostrar('Publicando '+c.nombre,'Comprobando archivos…');
   try{
+    /* Todo legible antes de subir nada: así no queda media carpeta publicada */
+    for(const [,blob] of archivos){
+      if(!blob||typeof blob.size!=='number'||blob.size===0)
+        throw new Error('Hay un diseño ilegible. Quítalo y vuelve a añadirlo.');
+      await blob.slice(0,1).arrayBuffer();
+    }
+
     for(let i=0;i<archivos.length;i++){
       const [ruta,blob]=archivos[i];
-      status('Publicando '+(i+1)+'/'+archivos.length+'…');
-      progreso((i+1)/archivos.length*100);
-      await ghSubir(ruta,blob,'Galería de '+ficha.cliente);
+      const nombre=ruta.split('/').pop();
+      cargaPaso('Subiendo '+nombre+' · '+(i+1)+' de '+archivos.length,
+                (i/archivos.length)*100);
+      await ghSubir(ruta,blob,'Galería de '+c.nombre);
     }
-    progreso(null);
-    const enlace=new URL('ver.html?c='+token,location.href).href;
-    console.log('Enlace del cliente:',enlace);
+    cargaPaso('Guardando…',100);
+    c.publicado=true;
+    await clientesGuardar();
+    const enlace=enlaceDe(c.token);
+    console.log('Enlace de '+c.nombre+':',enlace);
     await copiar(enlace);
-    prompt('Publicado. El enlace tarda un par de minutos en activarse.\n\n'+
-           'Ya está copiado al portapapeles:',enlace);
-    status('Galería publicada');
+
+    if(opciones&&opciones.abrir){
+      const listo=await esperarPublicacion(c.token,180);
+      cargaExito(listo?'Listo':'Publicado',
+        listo
+          ? 'Enlace copiado al portapapeles. Se abre en otra pestaña.'
+          : 'GitHub aún está republicando. Prueba el enlace en un minuto.',
+        enlace);
+      if(listo) window.open(enlace,'_blank');
+    }else{
+      cargaExito('Publicado',
+        'Tarda un par de minutos en actualizarse. Enlace copiado al portapapeles.',
+        enlace);
+    }
+    status('Galería de '+c.nombre+' publicada');
   }catch(e){
-    progreso(null);
+    cargaError(e.message);
     status(e.message,true);
-    alert('No se ha podido publicar:\n\n'+e.message);
   }
 }
 
@@ -1854,69 +2224,7 @@ async function copiar(txt){
   }
 }
 
-async function galeriaExportar(){
-  if(!galeria.length) return;
-  const cliente=prompt('Nombre del cliente:','');
-  if(cliente===null) return;
-
-  status('Generando paquete…');
-  try{
-    if(!window.JSZip) await loadScript(CDN.jszip);
-    const token=nuevoToken();
-    const zip=new JSZip();
-    const carpeta=zip.folder('c').folder(token);
-
-    const ficha={
-      cliente:(cliente||'').trim()||'Cliente',
-      creado:new Date().toISOString().slice(0,10),
-      disenos:[]
-    };
-
-    galeria.forEach((d,i)=>{
-      const ext=(d.disenoNombre.split('.').pop()||'jpg').toLowerCase();
-      const fD=`diseno-${i+1}.${ext}`;
-      const fP=`preview-${i+1}.png`;
-      carpeta.file(fD,d.disenoBlob);
-      carpeta.file(fP,d.previewBlob);
-      ficha.disenos.push({
-        titulo:d.titulo, modelo:d.modelo, modelo_nombre:d.modelo_nombre,
-        diseno:fD, preview:fP, camara:d.camara
-      });
-    });
-    carpeta.file('galeria.json',JSON.stringify(ficha,null,2));
-
-    const blob=await zip.generateAsync({type:'blob'});
-    descargar(blob,'galeria-'+token+'.zip');
-
-    const enlace=new URL('ver.html?c='+token,location.href).href;
-    console.log('Enlace del cliente:',enlace);
-    prompt('Descomprime el ZIP en la raíz del repositorio y sube los cambios.\n\nEnlace para '+ficha.cliente+':',enlace);
-    status('Paquete generado');
-  }catch(e){ status(e.message,true); }
-}
-
-/* Lista de lo acumulado, con opción de vaciar */
-function galeriaVer(){
-  if(!galeria.length) return;
-  const lista=galeria.map((d,i)=>`${i+1}. ${d.titulo} — ${d.modelo_nombre||d.modelo}`).join('\n');
-  const r=prompt(
-    lista+'\n\n'+
-    'PUBLICAR — sube la galería a GitHub y copia el enlace\n'+
-    'ZIP — descarga el paquete para subirlo a mano\n'+
-    'VACIAR — empieza una galería nueva\n'+
-    'TOKEN — cambia el token de GitHub',
-    'PUBLICAR');
-  if(r===null) return;
-  const op=r.trim().toUpperCase();
-  if(op==='PUBLICAR') galeriaPublicar();
-  else if(op==='ZIP') galeriaExportar();
-  else if(op==='TOKEN') pedirToken();
-  else if(op==='VACIAR'){ galeria=[]; galeriaGuardar(); status('Galería vaciada'); }
-}
-
-$('btnAddGaleria').onclick=galeriaAnadir;
-$('btnVerGaleria').onclick=galeriaVer;
-galeriaCargar();
+clientesCargar();
 
 /* ===============================================================
    Controles
