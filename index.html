@@ -342,7 +342,7 @@
   </button>
   <div class="tools">
     <button class="ghost" id="btnLocal"><span class="larga">Abrir archivo</span><span class="corta">Abrir</span></button>
-    <button class="ghost solid" id="btnZip"><span class="larga">Subir modelo</span><span class="corta">Modelo</span></button>
+    <button class="ghost solid" id="btnZip"><span class="larga">Añadir ZIP</span><span class="corta">ZIP</span></button>
   </div>
 </header>
 
@@ -379,7 +379,7 @@
     </button>
     <input type="file" id="fileTex" accept="image/*" hidden>
     <input type="file" id="fileModel" accept=".js,.json,.glb,.gltf" hidden>
-    <input type="file" id="fileZip" accept=".zip" hidden>
+    <input type="file" id="fileZip" accept=".zip" multiple hidden>
 
     <fieldset>
       <legend>Vista</legend>
@@ -482,7 +482,7 @@
       <button class="ghost" id="btnNuevoCli">Nuevo cliente</button>
       <button class="cerrar" id="cerrarModal" aria-label="Cerrar">&times;</button>
     </div>
-    <div class="cuerpo" id="listaClientesModal"></div>
+    <div class="cuerpo" id="listaClientes"></div>
   </div>
 </div>
 
@@ -1353,17 +1353,6 @@ async function comprobarDisponibles(){
 }
 
 async function loadCatalog(){
-  try{ await loadCatalogInterno(); }
-  catch(e){
-    console.error(e);
-    $('empty').hidden=false;
-    $('filterbar').hidden=true;
-    $('emptyTitle').textContent='Error al arrancar';
-    $('emptyBody').textContent=(e&&e.message)||String(e);
-  }
-}
-
-async function loadCatalogInterno(){
   let raw=null;
   try{
     const res=await fetch(CONFIG.catalogo,{cache:'no-store'});
@@ -1384,10 +1373,8 @@ async function loadCatalogInterno(){
   S.models=list.map(normaliza);
   S.total=S.models.length;
   renderCats(); renderGallery();
-  try{ await comprobarDisponibles(); }
-  catch(e){ console.error('Comprobación de archivos:',e); }
-  try{ await cargarLocales(); }
-  catch(e){ console.error('Modelos locales:',e); }
+  await comprobarDisponibles();
+  await cargarLocales();
   renderCats(); renderGallery();
 }
 
@@ -1427,7 +1414,7 @@ function renderCats(){
     b.onclick=()=>{S.filter=c;renderCats();renderGallery();};
     nav.appendChild(b);
   });
-  $('filterbar').hidden=!S.total;
+  $('filterbar').hidden=!S.models.length;
 }
 function visibleModels(){
   const q=S.query.trim().toLowerCase();
@@ -1447,26 +1434,7 @@ function renderGallery(){
     ? `${list.length} de ${S.total} · ${disp} disponibles`
     : `${list.length} disponibles de ${S.total}`;
   const grid=$('grid'); grid.innerHTML='';
-
-  /* Si no hay nada que enseñar, decir por qué */
-  if(!list.length){
-    $('empty').hidden=false;
-    if(!S.total){
-      $('emptyTitle').textContent='Catálogo vacío';
-      $('emptyBody').innerHTML='Se ha leído <code>'+CONFIG.catalogo+'</code> pero no contiene modelos.';
-    }else if(!S.models.some(m=>m.disponible)){
-      $('emptyTitle').textContent='No se encuentran los archivos';
-      $('emptyBody').innerHTML=
-        'El catálogo tiene '+S.total+' modelo'+(S.total===1?'':'s')+
-        ', pero no responde ninguno en <code>'+(S.base||CONFIG.bases[0])+'</code>.'+
-        '<br>Pulsa VER TODO para abrirlos igualmente.';
-    }else{
-      $('emptyTitle').textContent='Sin resultados';
-      $('emptyBody').textContent='Prueba con otra búsqueda o cambia de categoría.';
-    }
-  }else{
-    $('empty').hidden=true;
-  }
+  $('empty').hidden=list.length>0||!S.total;
 
   const frag=document.createDocumentFragment();
   const pendientes=[];
@@ -1510,20 +1478,6 @@ async function buscarMiniaturaEnCarpeta(basePath){
   }catch(e){ return null; }
 }
 
-/* Lee el catálogo, aplica el cambio y lo vuelve a subir */
-async function catalogoEditar(cambio,mensaje){
-  const actual=await ghLeer(CONFIG.catalogo);
-  let datos={modelos:[]};
-  if(actual){
-    try{ datos=JSON.parse(actual.texto); }catch(e){ datos={modelos:[]}; }
-    if(!Array.isArray(datos.modelos)) datos.modelos=datos.models||[];
-  }
-  cambio(datos);
-  await ghSubir(CONFIG.catalogo,
-    new Blob([JSON.stringify(datos,null,2)],{type:'application/json'}),
-    mensaje);
-}
-
 function attachThumb(slot,m){
   slot._modelo=m;
   let cands;
@@ -1560,6 +1514,268 @@ function attachThumb(slot,m){
 }
 
 /* ===============================================================
+   Alta de modelos por ZIP (carpeta DIM3D completa)
+=============================================================== */
+async function importarZips(files){
+  $('btnZip').disabled=true;
+  toast('Descomprimiendo…',0);
+  try{ if(!window.JSZip) await loadScript(CDN.jszip); }
+  catch(e){ toast('No se ha podido cargar JSZip'); $('btnZip').disabled=false; return; }
+
+  let nuevos=0;
+  const catalogo=new Map(S.models.map(m=>[m.code,m]));
+
+  for(const f of files){
+    let zip;
+    try{ zip=await JSZip.loadAsync(f); }
+    catch(e){ toast('ZIP ilegible: '+f.name); continue; }
+
+    /* Un ZIP = una o varias carpetas de modelo con su manifest.json */
+    const carpetas=new Map();
+    zip.forEach((path,entry)=>{
+      if(entry.dir) return;
+      const partes=path.split('/').filter(Boolean);
+      const nombre=partes.pop();
+      const dir=partes.join('/');
+      if(!carpetas.has(dir)) carpetas.set(dir,{});
+      carpetas.get(dir)[nombre]=entry;
+    });
+
+    for(const [dir,archivos] of carpetas){
+      const nombres=Object.keys(archivos);
+      const tieneManifest=nombres.includes(CONFIG.manifiesto);
+      const glb=nombres.find(n=>/\.glb$/i.test(n));
+      if(!tieneManifest&&!glb) continue;
+
+      const clave=dir.split('/').pop()||f.name.replace(/\.zip$/i,'');
+      const code=(clave.match(/\d{3,4}/)||[clave])[0];
+      const ref=catalogo.get(code);
+
+      /* Volcamos la carpeta entera a blob URLs y montamos un basePath virtual */
+      const urls={};
+      for(const n of nombres) urls[n]=URL.createObjectURL(await archivos[n].async('blob'));
+
+      let manifest;
+      if(tieneManifest){
+        manifest=JSON.parse(await archivos[CONFIG.manifiesto].async('string'));
+      }else{
+        manifest={format:'glb',file:glb};
+      }
+
+      const rec={
+        code,
+        name: ref?ref.name:clave,
+        category: ref?ref.category:categoryOf(clave),
+        format: manifest.format==='glb'?'glb':'legacy',
+        archivos: {},
+        manifestRaw: manifest,
+        thumbBlob: null
+      };
+      for(const n of nombres) rec.archivos[n]=await archivos[n].async('blob');
+      const thumb=nombres.find(n=>/^captura1?\.(png|jpe?g)$/i.test(n))
+               || nombres.find(n=>/^(thumb|preview)\.(jpe?g|png)$/i.test(n));
+      if(thumb) rec.thumbBlob=rec.archivos[thumb];
+
+      try{ await idbPut(rec); nuevos++; }catch(e){ console.error(e); }
+    }
+  }
+
+  await cargarLocales();
+  renderCats(); renderGallery();
+  $('btnZip').disabled=false;
+  toast(nuevos?`${nuevos} modelo${nuevos===1?'':'s'} añadido${nuevos===1?'':'s'}`
+              :'No se ha encontrado ningún modelo con manifest.json en el ZIP');
+}
+
+/* ===============================================================
+   EXPORTACIÓN — imágenes y vídeo
+   Los modos de vídeo replican los del panel de Illustrator.
+=============================================================== */
+const EXPORT={
+  lado:3000,                                   // PNG
+  video:{fps:30, dur:8, lado:1080}
+};
+
+function progreso(pct){
+  const b=$('barra'), f=$('barraFill');
+  if(pct===null){ b.classList.remove('on'); f.style.width='0'; return; }
+  b.classList.add('on'); f.style.width=Math.max(0,Math.min(100,pct))+'%';
+}
+
+/* Cambia el tamaño del buffer sin tocar el tamaño en pantalla */
+async function conLienzo(lado,fn){
+  S.exportando=true;
+  const size=S.renderer.getSize(new THREE.Vector2());
+  const pr=S.renderer.getPixelRatio();
+  const aspect=S.camera.aspect;
+  S.renderer.setPixelRatio(1);
+  S.renderer.setSize(lado,lado,false);
+  S.camera.aspect=1; S.camera.updateProjectionMatrix();
+  try{ return await fn(); }
+  finally{
+    S.renderer.setPixelRatio(pr);
+    S.renderer.setSize(size.x,size.y,false);
+    S.camera.aspect=aspect; S.camera.updateProjectionMatrix();
+    S.exportando=false;
+    resize();
+  }
+}
+
+function situarCamara(theta,phi,dist){
+  const t=S.orbit.target;
+  S.camera.position.set(
+    t.x+dist*Math.sin(phi)*Math.sin(theta),
+    t.y+dist*Math.cos(phi),
+    t.z+dist*Math.sin(phi)*Math.cos(theta)
+  );
+  S.camera.lookAt(t);
+}
+
+function lienzoABlob(){
+  return new Promise(res=>S.renderer.domElement.toBlob(res,'image/png'));
+}
+function descargar(blob,nombre){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=nombre;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+}
+function nombreBase(){
+  const m=S.actual;
+  return ((m&&m.code)||'visor')+'_'+((m&&m.name)||'').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+
+async function exportarCaptura(){
+  if(!S.root) return;
+  const {theta,phi,dist}=S.orbit;
+  await conLienzo(EXPORT.lado,async()=>{
+    situarCamara(theta,phi,dist);
+    S.renderer.render(S.scene,S.camera);
+    const blob=await lienzoABlob();
+    descargar(blob,nombreBase()+'_VISTA.png');
+  });
+  status('Captura guardada a '+EXPORT.lado+' px');
+}
+
+async function exportar4Vistas(){
+  if(!S.root) return;
+  const vistas=[
+    ['FRONTAL', 0],
+    ['LATERAL-DCHO', Math.PI/2],
+    ['TRASERA', Math.PI],
+    ['LATERAL-IZDO', -Math.PI/2]
+  ];
+  const {phi,dist}=S.orbit;
+  const salidas=[];
+  await conLienzo(EXPORT.lado,async()=>{
+    for(let i=0;i<vistas.length;i++){
+      const [nombre,theta]=vistas[i];
+      situarCamara(theta,phi,dist);
+      S.renderer.render(S.scene,S.camera);
+      salidas.push([nombre,await lienzoABlob()]);
+      progreso((i+1)/vistas.length*100);
+      await new Promise(r=>setTimeout(r,0));
+    }
+  });
+  progreso(null);
+
+  /* Las cuatro en un ZIP: el navegador bloquea descargas múltiples seguidas */
+  try{
+    if(!window.JSZip) await loadScript(CDN.jszip);
+    const zip=new JSZip();
+    salidas.forEach(([n,b])=>zip.file(nombreBase()+'_'+n+'.png',b));
+    descargar(await zip.generateAsync({type:'blob'}),nombreBase()+'_4VISTAS.zip');
+    status('4 vistas guardadas en ZIP');
+  }catch(e){
+    salidas.forEach(([n,b],i)=>setTimeout(()=>descargar(b,nombreBase()+'_'+n+'.png'),i*400));
+    status('4 vistas descargadas por separado');
+  }
+}
+
+const MODOS_VIDEO={
+  orbita360:  {suf:'360',   txt:'Órbita 360°'},
+  orbitaCine: {suf:'CINE',  txt:'Órbita cine'},
+  barridoHero:{suf:'HERO',  txt:'Barrido hero'},
+  reveal:     {suf:'REVEAL',txt:'Reveal'}
+};
+
+async function exportarVideo(modo){
+  if(!S.root) return;
+  if(typeof MediaRecorder==='undefined'){ status('Este navegador no puede grabar vídeo',true); return; }
+  const cfg=MODOS_VIDEO[modo]||MODOS_VIDEO.orbita360;
+  const {fps,dur,lado}=EXPORT.video;
+  const total=fps*dur;
+
+  document.querySelectorAll('.vid').forEach(b=>b.disabled=true);
+  status('Grabando '+cfg.txt+'…');
+
+  const radius=S.orbit.dist, a0=S.orbit.theta, phi=S.orbit.phi;
+  const y0=S.orbit.target.y+radius*Math.cos(phi);
+
+  await conLienzo(lado,async()=>{
+    let rec,stream;
+    const trozos=[];
+    try{
+      stream=S.renderer.domElement.captureStream(fps);
+      const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+        .find(m=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'video/webm';
+      try{ rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:16000000}); }
+      catch(e){ rec=new MediaRecorder(stream); }
+    }catch(e){
+      status('No se ha podido iniciar la grabación',true);
+      return;
+    }
+    rec.ondataavailable=e=>{ if(e.data&&e.data.size) trozos.push(e.data); };
+    const parado=new Promise(res=>{ rec.onstop=res; });
+    rec.start();
+
+    let frame=0;
+    await new Promise(res=>{
+      const paso=()=>{
+        const t=frame/total;
+        let ang,r=radius,yy=y0;
+        if(modo==='orbitaCine'){
+          const eased=t*t*(3-2*t);                          // lento, rápido, lento
+          ang=a0+eased*Math.PI*2;
+          yy=y0+Math.sin(t*Math.PI*2)*(radius*0.05);        // vaivén vertical
+          r=radius*(1-0.15*Math.sin(t*Math.PI));            // empuje de zoom
+        }else if(modo==='barridoHero'){
+          const sw=Math.sin(t*Math.PI*2);
+          ang=a0+sw*(Math.PI*65/180);                       // ±65°, nunca la espalda
+          r=radius*(1-0.10*sw*sw);
+          yy=y0+Math.sin(t*Math.PI*4)*(radius*0.03);
+        }else if(modo==='reveal'){
+          const e=1-Math.pow(1-t,3);                        // easeOutCubic
+          r=radius*(0.5+0.5*e);
+          ang=a0+e*(Math.PI*0.55);
+          yy=y0-(radius*0.06)*(1-e);
+        }else{
+          ang=a0+t*Math.PI*2;                               // 360 constante
+        }
+        const tg=S.orbit.target;
+        S.camera.position.set(tg.x+Math.sin(ang)*r, yy, tg.z+Math.cos(ang)*r);
+        S.camera.lookAt(tg);
+        S.renderer.render(S.scene,S.camera);
+        progreso(frame/total*100);
+        frame++;
+        if(frame<=total) requestAnimationFrame(paso); else res();
+      };
+      requestAnimationFrame(paso);
+    });
+
+    await new Promise(r=>setTimeout(r,150));
+    rec.stop();
+    await parado;
+    descargar(new Blob(trozos,{type:'video/webm'}),nombreBase()+'_'+cfg.suf+'.webm');
+  });
+
+  progreso(null);
+  document.querySelectorAll('.vid').forEach(b=>b.disabled=false);
+  status(cfg.txt+' guardado');
+}
+
+/* ===============================================================
    CLIENTES Y SUS DISEÑOS
    Cada cliente tiene un token fijo. Publicar actualiza SU carpeta,
    así que el enlace que ya le mandaste sigue valiendo y se le añaden
@@ -1567,8 +1783,47 @@ function attachThumb(slot,m){
 =============================================================== */
 let clientes=[];              // [{token,nombre,creado,publicado,disenos:[…]}]
 
-const clave=t=>(t||'').trim().toLowerCase()
-  .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+async function clientesCargar(){
+  try{
+    const rec=await idbGet(DB.galeria,'clientes');
+    clientes=(rec&&rec.items)||[];
+    if(!clientes.length){
+      /* Migración de la galería única anterior */
+      const viejo=await idbGet(DB.galeria,'items').catch(()=>null);
+      if(viejo&&viejo.items&&viejo.items.length){
+        clientes=[{token:nuevoToken(),nombre:'Sin asignar',
+                   creado:new Date().toISOString(),publicado:false,
+                   disenos:viejo.items.map(conId)}];
+        await clientesGuardar();
+      }
+    }
+  }catch(e){ clientes=[]; }
+  clientesPintar();
+}
+function conId(d){ d.id=d.id||nuevoToken().slice(0,8); return d; }
+
+async function clientesGuardar(){
+  try{ await idbSet(DB.galeria,{code:'clientes',items:clientes}); }catch(e){}
+  clientesPintar();
+}
+
+function clientesPintar(){
+  const lista=$('listaClientes');
+  lista.innerHTML='';
+  clientes.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.nombre;
+    lista.appendChild(o);
+  });
+
+  const total=clientes.reduce((n,c)=>n+c.disenos.length,0);
+  $('notaGaleria').textContent = clientes.length
+    ? clientes.length+' cliente'+(clientes.length===1?'':'s')+' · '+total+' diseño'+(total===1?'':'s')
+    : 'Sin clientes todavía.';
+  if(!$('modal').hidden) modalPintar();
+}
+
+function clientePorToken(t){ return clientes.find(c=>c.token===t); }
 
 function nuevoToken(){
   const b=crypto.getRandomValues(new Uint8Array(12));
@@ -1577,36 +1832,6 @@ function nuevoToken(){
 }
 function enlaceDe(token){
   return new URL('ver.html?c='+token,location.href).href;
-}
-function conId(d){ d.id=d.id||nuevoToken().slice(0,8); return d; }
-function clientePorToken(t){ return clientes.find(c=>c.token===t); }
-
-async function clientesCargar(){
-  try{
-    const rec=await idbGet(DB.galeria,'clientes');
-    clientes=(rec&&rec.items)||[];
-  }catch(e){ clientes=[]; }
-  clientesPintar();
-}
-async function clientesGuardar(){
-  try{ await idbSet(DB.galeria,{code:'clientes',items:clientes}); }catch(e){}
-  clientesPintar();
-}
-function clientesPintar(){
-  const lista=$('listaClientes');
-  if(lista){
-    lista.innerHTML='';
-    clientes.forEach(c=>{
-      const o=document.createElement('option');
-      o.value=c.nombre;
-      lista.appendChild(o);
-    });
-  }
-  const total=clientes.reduce((n,c)=>n+c.disenos.length,0);
-  $('notaGaleria').textContent = clientes.length
-    ? clientes.length+' cliente'+(clientes.length===1?'':'s')+' · '+total+' diseño'+(total===1?'':'s')
-    : 'Sin clientes todavía.';
-  if(!$('modal').hidden) modalPintar();
 }
 
 async function nuevoCliente(){
@@ -1622,6 +1847,9 @@ async function nuevoCliente(){
 }
 
 /* ---------------- diálogo de nombre ---------------- */
+const clave=t=>(t||'').trim().toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
 function pedirNombreCliente(){
   return new Promise(res=>{
     const dlg=$('dlgNombre'), inp=$('dlgInput'), pista=$('dlgPista');
@@ -1678,37 +1906,39 @@ async function subirAEnlacePrivado(){
 
 /* ---------------- añadir el diseño actual a un cliente ---------------- */
 async function anadirDisenoA(c){
-  const preview=await conLienzo(1200,async()=>{
-    const {theta,phi,dist}=S.orbit;
-    situarCamara(theta,phi,dist);
-    S.renderer.render(S.scene,S.camera);
-    return await lienzoABlob();
-  });
-  /* Copia del contenido: el File apunta a un archivo del disco y deja de
-     poder leerse si se mueve o si el navegador pierde el permiso. */
-  const copia=new Blob([await S.designFile.arrayBuffer()],
-                       {type:S.designFile.type||'image/jpeg'});
-  c.disenos.push(conId({
-    titulo:($('tituloDis').value||'').trim()||S.actual.name||'Sin título',
-    modelo:S.actual.code,
-    modelo_nombre:S.actual.name||'',
-    disenoBlob:copia,
-    disenoNombre:S.designFile.name||'diseno.jpg',
-    previewBlob:preview,
-    camara:{
-      theta:S.orbit.theta, phi:S.orbit.phi, dist:S.orbit.dist,
-      luzKey:S.luces.key.intensity, luzFill:S.luces.fill.intensity
-    }
-  }));
-  $('tituloDis').value='';
+  {
+    const preview=await conLienzo(1200,async()=>{
+      const {theta,phi,dist}=S.orbit;
+      situarCamara(theta,phi,dist);
+      S.renderer.render(S.scene,S.camera);
+      return await lienzoABlob();
+    });
+    /* Copia del contenido: el File apunta a un archivo del disco y deja de
+       poder leerse si se mueve o si el navegador pierde el permiso. */
+    const copia=new Blob([await S.designFile.arrayBuffer()],
+                         {type:S.designFile.type||'image/jpeg'});
+    c.disenos.push(conId({
+      titulo:($('tituloDis').value||'').trim()||S.actual.name||'Sin título',
+      modelo:S.actual.code,
+      modelo_nombre:S.actual.name||'',
+      disenoBlob:copia,
+      disenoNombre:S.designFile.name||'diseno.jpg',
+      previewBlob:preview,
+      camara:{
+        theta:S.orbit.theta, phi:S.orbit.phi, dist:S.orbit.dist,
+        luzKey:S.luces.key.intensity, luzFill:S.luces.fill.intensity
+      }
+    }));
+    $('tituloDis').value='';
+  }
 }
 
 /* ---------------- ventana de clientes ---------------- */
 function modalPintar(){
-  const cont=$('listaClientesModal');
+  const cont=$('listaClientes');
   cont.innerHTML='';
   if(!clientes.length){
-    cont.innerHTML='<p class="vacio">Todavía no has creado ningún cliente.</p>';
+    cont.innerHTML='<p class="vacio">Crea un cliente para empezar.</p>';
     return;
   }
   clientes.forEach(c=>{
@@ -1733,7 +1963,7 @@ function modalPintar(){
       const fila=document.createElement('div');
       fila.className='dis';
       fila.innerHTML=`<span>${d.titulo} — ${d.modelo_nombre||d.modelo}</span>
-                      <button>Quitar</button>`;
+                      <button data-d="${d.id}">Quitar</button>`;
       fila.querySelector('button').onclick=async()=>{
         c.disenos=c.disenos.filter(x=>x.id!==d.id);
         await clientesGuardar();
@@ -1749,7 +1979,7 @@ function modalPintar(){
 }
 
 async function accionCliente(c,accion){
-  if(accion==='publicar'){ $('modal').hidden=true; publicarCliente(c,{abrir:true}); return; }
+  if(accion==='publicar'){ publicarCliente(c,{abrir:true}); return; }
   if(accion==='enlace'){
     await copiar(enlaceDe(c.token));
     toast(c.publicado?'Enlace copiado':'Enlace copiado, pero aún sin publicar');
@@ -1763,13 +1993,20 @@ async function accionCliente(c,accion){
     return;
   }
   if(accion==='borrar'){
-    if(!confirm('¿Eliminar '+c.nombre+' y sus '+c.disenos.length+' diseño(s)?\n\n'+
+    if(!confirm('Eliminar '+c.nombre+' y sus '+c.disenos.length+' diseño(s)?\n\n'+
                 (c.publicado?'Su enlace dejará de actualizarse, pero los archivos ya publicados\nseguirán en el repositorio hasta que los borres desde GitHub.':'')))
       return;
     clientes=clientes.filter(x=>x.token!==c.token);
     await clientesGuardar();
   }
 }
+
+$('btnSubirPrivado').onclick=subirAEnlacePrivado;
+$('btnClientes').onclick=()=>{ $('modal').hidden=false; modalPintar(); };
+$('cerrarModal').onclick=()=>{ $('modal').hidden=true; };
+$('modal').onclick=e=>{ if(e.target===$('modal')) $('modal').hidden=true; };
+$('btnNuevoCli').onclick=nuevoCliente;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('modal').hidden=true; });
 
 /* ---------------------------------------------------------------
    Pantalla de carga
@@ -1813,7 +2050,7 @@ function cargaExito(titulo,sub,enlace){
   $('cargaBtns').hidden=false;
 }
 function cargaError(msg){
-  $('cargaTit').textContent='No se ha podido completar';
+  $('cargaTit').textContent='No se ha podido publicar';
   $('cargaSub').textContent=msg;
   $('cargaSub').classList.add('err');
   document.querySelector('.cargaBarra').classList.remove('indet');
@@ -1823,10 +2060,20 @@ function cargaError(msg){
   $('cargaCopiar').hidden=true;
   $('cargaBtns').hidden=false;
 }
+$('cargaCerrar').onclick=()=>{ $('cargando').hidden=true; };
+$('cargaCopiar').onclick=async()=>{
+  await copiar($('cargando').dataset.enlace||'');
+  $('cargaCopiar').textContent='Copiado';
+  setTimeout(()=>{$('cargaCopiar').textContent='Copiar enlace';},1600);
+};
+$('cargaAbrir').onclick=()=>{
+  const u=$('cargando').dataset.enlace;
+  if(u) window.open(u,'_blank');
+};
 
 /* ---------------------------------------------------------------
    Publicación en GitHub
-   El token vive solo en este navegador, nunca en el código.
+   El token de GitHub vive solo en este navegador, nunca en el código.
 --------------------------------------------------------------- */
 const TOKEN_STORE='visor3d_gh_token';
 const ghToken=()=>localStorage.getItem(TOKEN_STORE)||'';
@@ -1924,6 +2171,7 @@ async function publicarCliente(c,opciones){
   archivos.push([carpeta+'galeria.json',
     new Blob([JSON.stringify(ficha,null,2)],{type:'application/json'})]);
 
+  $('modal').hidden=true;
   cargaMostrar('Publicando '+c.nombre,'Comprobando archivos…');
   try{
     /* Todo legible antes de subir nada: así no queda media carpeta publicada */
@@ -1976,125 +2224,7 @@ async function copiar(txt){
   }
 }
 
-/* ---------------- enganches ---------------- */
-$('btnSubirPrivado').onclick=subirAEnlacePrivado;
-$('btnClientes').onclick=()=>{ $('modal').hidden=false; modalPintar(); };
-$('cerrarModal').onclick=()=>{ $('modal').hidden=true; };
-$('modal').onclick=e=>{ if(e.target===$('modal')) $('modal').hidden=true; };
-$('btnNuevoCli').onclick=nuevoCliente;
-$('cargaCerrar').onclick=()=>{ $('cargando').hidden=true; };
-$('cargaCopiar').onclick=async()=>{
-  await copiar($('cargando').dataset.enlace||'');
-  $('cargaCopiar').textContent='Copiado';
-  setTimeout(()=>{$('cargaCopiar').textContent='Copiar enlace';},1600);
-};
-$('cargaAbrir').onclick=()=>{
-  const u=$('cargando').dataset.enlace;
-  if(u) window.open(u,'_blank');
-};
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){ $('modal').hidden=true; }
-});
-
 clientesCargar();
-
-/* ===============================================================
-   ALTA DE MODELOS
-   El ZIP se descomprime en el navegador y sus archivos se suben al
-   repositorio bajo models/<codigo>/. Después se actualiza catalogo.json,
-   así que el modelo queda disponible también para el resto de equipos.
-=============================================================== */
-const BASURA=/(^|\/)(__MACOSX|\.DS_Store|Thumbs\.db|desktop\.ini)(\/|$)/i;
-
-async function ghLeer(ruta){
-  const url=`https://api.github.com/repos/${GH.usuario}/${GH.repo}/contents/${ruta}?ref=${GH.rama}`;
-  const res=await fetch(url,{headers:{Authorization:'Bearer '+ghToken()}});
-  if(res.status===404) return null;
-  if(!res.ok) throw new Error('No se ha podido leer '+ruta);
-  const j=await res.json();
-  return {sha:j.sha, texto:decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))))};
-}
-
-/* Localiza la carpeta del modelo dentro del ZIP */
-function carpetaDelModelo(zip){
-  let raiz=null, glb=null;
-  zip.forEach((ruta,e)=>{
-    if(e.dir||BASURA.test(ruta)) return;
-    const partes=ruta.split('/').filter(Boolean);
-    const nombre=partes[partes.length-1];
-    if(nombre.toLowerCase()==='manifest.json'){
-      const dir=partes.slice(0,-1).join('/');
-      if(raiz===null||dir.length<raiz.length) raiz=dir;
-    }
-    if(/\.glb$/i.test(nombre)&&glb===null) glb=partes.slice(0,-1).join('/');
-  });
-  if(raiz!==null) return {dir:raiz, tipo:'legacy'};
-  if(glb!==null)  return {dir:glb,  tipo:'glb'};
-  return null;
-}
-
-async function subirModeloZip(file){
-  if(!ghToken() && !pedirToken()) return;
-
-  cargaMostrar('Subiendo modelo','Descomprimiendo…');
-  try{
-    if(!window.JSZip) await loadScript(CDN.jszip);
-    const zip=await JSZip.loadAsync(file);
-
-    const info=carpetaDelModelo(zip);
-    if(!info) throw new Error('El ZIP no contiene ningún manifest.json ni archivo .glb');
-
-    /* Todo lo que cuelga de esa carpeta, conservando subcarpetas */
-    const prefijo=info.dir?info.dir+'/':'';
-    const entradas=[];
-    zip.forEach((ruta,e)=>{
-      if(e.dir||BASURA.test(ruta)) return;
-      if(!ruta.startsWith(prefijo)) return;
-      const rel=ruta.slice(prefijo.length);
-      if(rel) entradas.push([rel,e]);
-    });
-    if(!entradas.length) throw new Error('La carpeta del modelo está vacía');
-
-    /* Código: los dígitos del nombre de carpeta, o lo que diga el usuario */
-    const hoja=(info.dir.split('/').pop()||file.name.replace(/\.zip$/i,''));
-    let codigo=(hoja.match(/\d{3,4}/)||[''])[0];
-    codigo=(prompt('Código del modelo (el nombre de su carpeta):',codigo)||'').trim();
-    if(!codigo) { $('cargando').hidden=true; return; }
-
-    if(S.models.some(m=>m.code===codigo && m.disponible)){
-      if(!confirm('El modelo '+codigo+' ya existe en el catálogo.\n\n'+
-                  'Si continúas se reemplazarán sus archivos. ¿Seguir?')){
-        $('cargando').hidden=true; return;
-      }
-    }
-
-    const nombre=(prompt('Nombre del modelo:',hoja)||hoja).trim();
-
-    /* Subida archivo a archivo */
-    const base='models/'+codigo+'/';
-    for(let i=0;i<entradas.length;i++){
-      const [rel,e]=entradas[i];
-      cargaPaso('Subiendo '+rel+' · '+(i+1)+' de '+entradas.length,
-                (i/(entradas.length+1))*100);
-      await ghSubir(base+rel, await e.async('blob'), 'Modelo '+codigo);
-    }
-
-    /* Índice del catálogo */
-    cargaPaso('Actualizando el catálogo…',(entradas.length/(entradas.length+1))*100);
-    await catalogoEditar(cat=>{
-      cat.modelos=cat.modelos.filter(m=>(m.codigo||m.code)!==codigo);
-      cat.modelos.push({codigo, nombre, carpeta:codigo, formato:info.tipo});
-      cat.modelos.sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo)));
-    },'Catálogo: '+codigo+' '+nombre);
-
-    cargaExito('Modelo subido',
-      codigo+' · '+nombre+'. Tarda un par de minutos en aparecer en la parrilla.');
-    status('Modelo '+codigo+' subido');
-  }catch(e){
-    console.error(e);
-    cargaError(e.message);
-  }
-}
 
 /* ===============================================================
    Controles
@@ -2115,7 +2245,7 @@ $('toggleAll').onclick=e=>{
   e.target.textContent=S.verTodo?'Solo disponibles':'Ver todo';
   renderCats(); renderGallery();
 };
-$('fileZip').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) subirModeloZip(f); };
+$('fileZip').onchange=e=>{ if(e.target.files.length) importarZips([...e.target.files]); e.target.value=''; };
 $('fileModel').onchange=async e=>{
   const f=e.target.files[0]; e.target.value='';
   if(!f) return;
@@ -2180,7 +2310,7 @@ document.querySelectorAll('.vid').forEach(b=>{
 document.addEventListener('drop',e=>{
   const fs=[...e.dataTransfer.files]; if(!fs.length) return;
   const zips=fs.filter(f=>/\.zip$/i.test(f.name));
-  if(zips.length){ subirModeloZip(zips[0]); return; }
+  if(zips.length){ importarZips(zips); return; }
   if($('viewer').classList.contains('on')) applyImage(fs[0]);
 });
 
