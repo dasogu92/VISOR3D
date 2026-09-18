@@ -1,6 +1,12 @@
 {
   "modelos": [
     {
+      "codigo": "0100",
+      "nombre": "0100 CAMISETA ML",
+      "carpeta": "0100",
+      "formato": "legacy"
+    },
+    {
       "codigo": "0917",
       "nombre": "PANTALON CORTO ENERGY UNI 0917",
       "carpeta": "0917",
