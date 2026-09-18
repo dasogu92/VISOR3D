@@ -116,27 +116,6 @@
   .card .shot img.on{opacity:1}
   .card .shot .void{font-size:26px;letter-spacing:.18em;color:#D6D2CA;font-weight:700}
   .card .meta{padding:12px 2px 0}
-  .kebab{
-    position:absolute;right:6px;top:6px;z-index:2;
-    width:28px;height:28px;padding:0;line-height:1;
-    background:rgba(255,255,255,.88);border:1px solid var(--rule);
-    cursor:pointer;font-size:15px;letter-spacing:.06em;color:var(--muted);
-    opacity:0;transition:opacity .15s;
-  }
-  .card:hover .kebab,.kebab:focus-visible,.kebab.on{opacity:1}
-  .kebab:hover{border-color:var(--ink);color:var(--ink)}
-  .menu{
-    position:absolute;right:6px;top:38px;z-index:3;
-    background:var(--paper);border:1px solid var(--ink);min-width:150px;display:none;
-  }
-  .menu.on{display:block}
-  .menu button{
-    display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;
-    padding:9px 12px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
-  }
-  .menu button:hover{background:var(--stage)}
-  .menu button.peligro{color:var(--accent)}
-  @media (hover:none){ .kebab{opacity:1} }
   .card .nom{margin-top:3px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;line-height:1.35}
   .card:hover .nom{color:var(--accent)}
 
@@ -503,7 +482,7 @@
       <button class="ghost" id="btnNuevoCli">Nuevo cliente</button>
       <button class="cerrar" id="cerrarModal" aria-label="Cerrar">&times;</button>
     </div>
-    <div class="cuerpo" id="listaClientes"></div>
+    <div class="cuerpo" id="listaClientesModal"></div>
   </div>
 </div>
 
@@ -1492,38 +1471,14 @@ function renderGallery(){
   const frag=document.createDocumentFragment();
   const pendientes=[];
   list.forEach(m=>{
-    const card=document.createElement('div');
+    const card=document.createElement('button');
     card.className='card'+(m.disponible?'':' off');
-    card.tabIndex=0;
-    card.setAttribute('role','button');
     card.innerHTML=`
-      <div class="shot">
-        <span class="void">${m.code}</span>
-        <button class="kebab" aria-label="Opciones de ${m.code}">&#8943;</button>
-        <div class="menu">
-          <button data-a="renombrar">Renombrar</button>
-          <button data-a="eliminar" class="peligro">Eliminar</button>
-        </div>
-      </div>
+      <div class="shot"><span class="void">${m.code}</span></div>
       <div class="meta">
         <div class="nom">${m.name}</div>
       </div>`;
-
-    const kebab=card.querySelector('.kebab');
-    const menu=card.querySelector('.menu');
-    kebab.onclick=e=>{
-      e.stopPropagation();
-      const abierto=menu.classList.contains('on');
-      cerrarMenus();
-      if(!abierto){ menu.classList.add('on'); kebab.classList.add('on'); }
-    };
-    menu.onclick=e=>e.stopPropagation();
-    menu.querySelectorAll('button').forEach(b=>{
-      b.onclick=()=>{ cerrarMenus(); accionModelo(m,b.dataset.a); };
-    });
-
     card.onclick=()=>openModel(m);
-    card.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openModel(m); } };
     pendientes.push([card.querySelector('.shot'),m]);
     frag.appendChild(card);
   });
@@ -1553,102 +1508,6 @@ async function buscarMiniaturaEnCarpeta(basePath){
     imgs.sort((a,b)=>(a.captura?0:1)-(b.captura?0:1));
     return imgs.length?imgs[0].url:null;
   }catch(e){ return null; }
-}
-
-function cerrarMenus(){
-  document.querySelectorAll('.menu.on').forEach(x=>x.classList.remove('on'));
-  document.querySelectorAll('.kebab.on').forEach(x=>x.classList.remove('on'));
-}
-document.addEventListener('click',cerrarMenus);
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') cerrarMenus(); });
-
-async function accionModelo(m,accion){
-  if(accion==='renombrar') return renombrarModelo(m);
-  if(accion==='eliminar')  return eliminarModelo(m);
-}
-
-async function renombrarModelo(m){
-  const nuevo=prompt('Nombre del modelo '+m.code+':',m.name);
-  if(nuevo===null) return;
-  const nombre=nuevo.trim();
-  if(!nombre||nombre===m.name) return;
-  if(!ghToken() && !pedirToken()) return;
-
-  cargaMostrar('Renombrando','Actualizando el catálogo…');
-  try{
-    await catalogoEditar(cat=>{
-      const fila=cat.modelos.find(x=>(x.codigo||x.code)===m.code);
-      if(!fila) throw new Error('El modelo no está en el catálogo');
-      fila.nombre=nombre;
-    },'Renombrar '+m.code);
-    m.name=nombre; m.category=categoryOf(nombre);
-    renderCats(); renderGallery();
-    cargaExito('Renombrado',m.code+' · '+nombre);
-  }catch(e){ cargaError(e.message); }
-}
-
-async function eliminarModelo(m){
-  if(!confirm('Eliminar el modelo '+m.code+' del repositorio?\n\n'+
-              m.name+'\n\nSe borran su carpeta y su entrada del catálogo.\n'+
-              'Los enlaces de cliente que usen este modelo dejarán de verlo.')) return;
-  if(!ghToken() && !pedirToken()) return;
-
-  cargaMostrar('Eliminando '+m.code,'Buscando archivos…');
-  try{
-    const carpeta=(S.base||CONFIG.bases[0])+m.folder;
-    const archivos=await ghArchivosDe(carpeta);
-    for(let i=0;i<archivos.length;i++){
-      const f=archivos[i];
-      cargaPaso('Borrando '+f.name+' · '+(i+1)+' de '+archivos.length,
-                (i/(archivos.length+1))*100);
-      await ghBorrar(f.path,f.sha,'Eliminar '+m.code);
-    }
-    cargaPaso('Actualizando el catálogo…',100);
-    await catalogoEditar(cat=>{
-      cat.modelos=cat.modelos.filter(x=>(x.codigo||x.code)!==m.code);
-    },'Eliminar '+m.code+' del catálogo');
-
-    S.models=S.models.filter(x=>x.code!==m.code);
-    S.total=Math.max(0,S.total-1);
-    try{ await idbBorrar(DB.thumbs,m.code); }catch(e){}
-    renderCats(); renderGallery();
-    cargaExito('Eliminado',m.code+' ya no está en el repositorio.');
-  }catch(e){ cargaError(e.message); }
-}
-
-/* Lista recursiva de archivos de una carpeta del repositorio */
-async function ghArchivosDe(ruta){
-  const url=`https://api.github.com/repos/${GH.usuario}/${GH.repo}/contents/${ruta}?ref=${GH.rama}`;
-  const res=await fetch(url,{headers:{Authorization:'Bearer '+ghToken()}});
-  if(res.status===404) return [];
-  if(res.status===401) throw new Error('Token de GitHub no válido o caducado');
-  if(!res.ok) throw new Error('No se ha podido leer '+ruta);
-  const lista=await res.json();
-  const salida=[];
-  for(const it of (Array.isArray(lista)?lista:[lista])){
-    if(it.type==='dir') salida.push(...await ghArchivosDe(it.path));
-    else salida.push({path:it.path,sha:it.sha,name:it.name});
-  }
-  return salida;
-}
-
-async function ghBorrar(ruta,sha,mensaje){
-  const url=`https://api.github.com/repos/${GH.usuario}/${GH.repo}/contents/${ruta}`;
-  const res=await fetch(url,{
-    method:'DELETE',
-    headers:{
-      Authorization:'Bearer '+ghToken(),
-      Accept:'application/vnd.github+json',
-      'Content-Type':'application/json'
-    },
-    body:JSON.stringify({message:mensaje,sha,branch:GH.rama})
-  });
-  if(res.status===403) throw new Error('El token no tiene permiso de escritura');
-  if(!res.ok){
-    let m='HTTP '+res.status;
-    try{ m=(await res.json()).message||m; }catch(e){}
-    throw new Error(m);
-  }
 }
 
 /* Lee el catálogo, aplica el cambio y lo vuelve a subir */
@@ -1699,6 +1558,445 @@ function attachThumb(slot,m){
   };
   img.src=cands[i++];
 }
+
+/* ===============================================================
+   CLIENTES Y SUS DISEÑOS
+   Cada cliente tiene un token fijo. Publicar actualiza SU carpeta,
+   así que el enlace que ya le mandaste sigue valiendo y se le añaden
+   los diseños nuevos.
+=============================================================== */
+let clientes=[];              // [{token,nombre,creado,publicado,disenos:[…]}]
+
+const clave=t=>(t||'').trim().toLowerCase()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+function nuevoToken(){
+  const b=crypto.getRandomValues(new Uint8Array(12));
+  const abc='abcdefghijkmnpqrstuvwxyz23456789';   // sin l, o, 0, 1
+  return Array.from(b,x=>abc[x%32]).join('');
+}
+function enlaceDe(token){
+  return new URL('ver.html?c='+token,location.href).href;
+}
+function conId(d){ d.id=d.id||nuevoToken().slice(0,8); return d; }
+function clientePorToken(t){ return clientes.find(c=>c.token===t); }
+
+async function clientesCargar(){
+  try{
+    const rec=await idbGet(DB.galeria,'clientes');
+    clientes=(rec&&rec.items)||[];
+  }catch(e){ clientes=[]; }
+  clientesPintar();
+}
+async function clientesGuardar(){
+  try{ await idbSet(DB.galeria,{code:'clientes',items:clientes}); }catch(e){}
+  clientesPintar();
+}
+function clientesPintar(){
+  const lista=$('listaClientes');
+  if(lista){
+    lista.innerHTML='';
+    clientes.forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c.nombre;
+      lista.appendChild(o);
+    });
+  }
+  const total=clientes.reduce((n,c)=>n+c.disenos.length,0);
+  $('notaGaleria').textContent = clientes.length
+    ? clientes.length+' cliente'+(clientes.length===1?'':'s')+' · '+total+' diseño'+(total===1?'':'s')
+    : 'Sin clientes todavía.';
+  if(!$('modal').hidden) modalPintar();
+}
+
+async function nuevoCliente(){
+  const nombre=prompt('Nombre del cliente:','');
+  if(nombre===null) return null;
+  const c={
+    token:nuevoToken(), nombre:(nombre||'').trim()||'Cliente',
+    creado:new Date().toISOString(), publicado:false, disenos:[]
+  };
+  clientes.push(c);
+  await clientesGuardar();
+  return c;
+}
+
+/* ---------------- diálogo de nombre ---------------- */
+function pedirNombreCliente(){
+  return new Promise(res=>{
+    const dlg=$('dlgNombre'), inp=$('dlgInput'), pista=$('dlgPista');
+    inp.value=''; pista.textContent='';
+    dlg.hidden=false;
+    setTimeout(()=>inp.focus(),30);
+
+    const revisar=()=>{
+      const c=clientes.find(x=>clave(x.nombre)===clave(inp.value));
+      pista.textContent = c
+        ? 'Se añadirá a su enlace, que ya tiene '+c.disenos.length+' diseño'+(c.disenos.length===1?'':'s')
+        : (inp.value.trim()? 'Cliente nuevo: se creará un enlace' : '');
+    };
+    const cerrar=v=>{
+      dlg.hidden=true;
+      inp.oninput=null; inp.onkeydown=null;
+      res(v);
+    };
+    inp.oninput=revisar;
+    inp.onkeydown=e=>{
+      if(e.key==='Enter'){ e.preventDefault(); if(inp.value.trim()) cerrar(inp.value.trim()); }
+      if(e.key==='Escape') cerrar(null);
+    };
+    $('dlgAceptar').onclick=()=>{ if(inp.value.trim()) cerrar(inp.value.trim()); else inp.focus(); };
+    $('dlgCancelar').onclick=()=>cerrar(null);
+  });
+}
+
+/* ---------------- subir a enlace privado, todo de una ---------------- */
+async function subirAEnlacePrivado(){
+  if(!S.actual){ status('Abre un modelo primero',true); return; }
+  if(!S.designFile){ status('Sube antes el diseño',true); return; }
+  if(!ghToken() && !pedirToken()) return;
+
+  const nombre=await pedirNombreCliente();
+  if(!nombre) return;
+
+  let c=clientes.find(x=>clave(x.nombre)===clave(nombre));
+  if(!c){
+    c={token:nuevoToken(),nombre:nombre.trim(),creado:new Date().toISOString(),
+       publicado:false,disenos:[]};
+    clientes.push(c);
+  }
+
+  cargaMostrar('Preparando','Generando la vista previa…');
+  try{
+    await anadirDisenoA(c);
+    await clientesGuardar();
+    await publicarCliente(c,{abrir:true});
+  }catch(e){
+    cargaError(e.message);
+  }
+}
+
+/* ---------------- añadir el diseño actual a un cliente ---------------- */
+async function anadirDisenoA(c){
+  const preview=await conLienzo(1200,async()=>{
+    const {theta,phi,dist}=S.orbit;
+    situarCamara(theta,phi,dist);
+    S.renderer.render(S.scene,S.camera);
+    return await lienzoABlob();
+  });
+  /* Copia del contenido: el File apunta a un archivo del disco y deja de
+     poder leerse si se mueve o si el navegador pierde el permiso. */
+  const copia=new Blob([await S.designFile.arrayBuffer()],
+                       {type:S.designFile.type||'image/jpeg'});
+  c.disenos.push(conId({
+    titulo:($('tituloDis').value||'').trim()||S.actual.name||'Sin título',
+    modelo:S.actual.code,
+    modelo_nombre:S.actual.name||'',
+    disenoBlob:copia,
+    disenoNombre:S.designFile.name||'diseno.jpg',
+    previewBlob:preview,
+    camara:{
+      theta:S.orbit.theta, phi:S.orbit.phi, dist:S.orbit.dist,
+      luzKey:S.luces.key.intensity, luzFill:S.luces.fill.intensity
+    }
+  }));
+  $('tituloDis').value='';
+}
+
+/* ---------------- ventana de clientes ---------------- */
+function modalPintar(){
+  const cont=$('listaClientesModal');
+  cont.innerHTML='';
+  if(!clientes.length){
+    cont.innerHTML='<p class="vacio">Todavía no has creado ningún cliente.</p>';
+    return;
+  }
+  clientes.forEach(c=>{
+    const div=document.createElement('div');
+    div.className='cli';
+    div.innerHTML=`
+      <div class="cliTop">
+        <span class="cliNom">${c.nombre}</span>
+        <span class="cliNum ${c.publicado?'pub':''}">
+          ${c.disenos.length} diseño${c.disenos.length===1?'':'s'} · ${c.publicado?'publicado':'sin publicar'}
+        </span>
+        <span class="cliBtns">
+          <button class="ghost" data-a="publicar">Publicar</button>
+          <button class="ghost" data-a="enlace">Copiar enlace</button>
+          <button class="ghost" data-a="renombrar">Renombrar</button>
+          <button class="ghost" data-a="borrar">Eliminar</button>
+        </span>
+      </div>
+      ${c.publicado?`<p class="enlace">${enlaceDe(c.token)}</p>`:''}`;
+
+    c.disenos.forEach(d=>{
+      const fila=document.createElement('div');
+      fila.className='dis';
+      fila.innerHTML=`<span>${d.titulo} — ${d.modelo_nombre||d.modelo}</span>
+                      <button>Quitar</button>`;
+      fila.querySelector('button').onclick=async()=>{
+        c.disenos=c.disenos.filter(x=>x.id!==d.id);
+        await clientesGuardar();
+      };
+      div.appendChild(fila);
+    });
+
+    div.querySelectorAll('.cliBtns .ghost').forEach(b=>{
+      b.onclick=()=>accionCliente(c,b.dataset.a);
+    });
+    cont.appendChild(div);
+  });
+}
+
+async function accionCliente(c,accion){
+  if(accion==='publicar'){ $('modal').hidden=true; publicarCliente(c,{abrir:true}); return; }
+  if(accion==='enlace'){
+    await copiar(enlaceDe(c.token));
+    toast(c.publicado?'Enlace copiado':'Enlace copiado, pero aún sin publicar');
+    return;
+  }
+  if(accion==='renombrar'){
+    const n=prompt('Nombre del cliente:',c.nombre);
+    if(n===null) return;
+    c.nombre=(n||'').trim()||c.nombre;
+    await clientesGuardar();
+    return;
+  }
+  if(accion==='borrar'){
+    if(!confirm('¿Eliminar '+c.nombre+' y sus '+c.disenos.length+' diseño(s)?\n\n'+
+                (c.publicado?'Su enlace dejará de actualizarse, pero los archivos ya publicados\nseguirán en el repositorio hasta que los borres desde GitHub.':'')))
+      return;
+    clientes=clientes.filter(x=>x.token!==c.token);
+    await clientesGuardar();
+  }
+}
+
+/* ---------------------------------------------------------------
+   Pantalla de carga
+--------------------------------------------------------------- */
+function cargaMostrar(titulo,sub){
+  $('cargaTit').textContent=titulo;
+  $('cargaSub').textContent=sub||'';
+  $('cargaSub').classList.remove('err');
+  $('cargaEnlace').hidden=true;
+  $('cargaBtns').hidden=true;
+  $('cargaFill').style.width='0';
+  document.querySelector('.cargaBarra').classList.add('indet');
+  $('cargando').hidden=false;
+}
+function cargaPaso(sub,pct){
+  $('cargaSub').textContent=sub;
+  const barra=document.querySelector('.cargaBarra');
+  if(typeof pct==='number'){
+    barra.classList.remove('indet');
+    $('cargaFill').style.width=Math.max(0,Math.min(100,pct))+'%';
+  }else{
+    barra.classList.add('indet');
+  }
+}
+function cargaExito(titulo,sub,enlace){
+  $('cargaTit').textContent=titulo;
+  $('cargaSub').textContent=sub||'';
+  $('cargaSub').classList.remove('err');
+  document.querySelector('.cargaBarra').classList.remove('indet');
+  $('cargaFill').style.width='100%';
+  if(enlace){
+    $('cargaEnlace').textContent=enlace;
+    $('cargaEnlace').hidden=false;
+    $('cargaAbrir').hidden=false;
+    $('cargaCopiar').hidden=false;
+    $('cargando').dataset.enlace=enlace;
+  }else{
+    $('cargaAbrir').hidden=true;
+    $('cargaCopiar').hidden=true;
+  }
+  $('cargaBtns').hidden=false;
+}
+function cargaError(msg){
+  $('cargaTit').textContent='No se ha podido completar';
+  $('cargaSub').textContent=msg;
+  $('cargaSub').classList.add('err');
+  document.querySelector('.cargaBarra').classList.remove('indet');
+  $('cargaFill').style.width='0';
+  $('cargaEnlace').hidden=true;
+  $('cargaAbrir').hidden=true;
+  $('cargaCopiar').hidden=true;
+  $('cargaBtns').hidden=false;
+}
+
+/* ---------------------------------------------------------------
+   Publicación en GitHub
+   El token vive solo en este navegador, nunca en el código.
+--------------------------------------------------------------- */
+const TOKEN_STORE='visor3d_gh_token';
+const ghToken=()=>localStorage.getItem(TOKEN_STORE)||'';
+
+function pedirToken(){
+  const t=prompt(
+    'Pega tu token de GitHub.\n\n'+
+    'Se guarda solo en este navegador y no sale de aquí.\n'+
+    'Para borrarlo, escribe la palabra BORRAR.',
+    ghToken()?'(ya hay uno guardado)':''
+  );
+  if(t===null) return false;
+  const v=t.trim();
+  if(v.toUpperCase()==='BORRAR'){ localStorage.removeItem(TOKEN_STORE); status('Token borrado'); return false; }
+  if(!v||v==='(ya hay uno guardado)') return !!ghToken();
+  localStorage.setItem(TOKEN_STORE,v);
+  return true;
+}
+
+function blobABase64(blob){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(String(r.result).split(',')[1]);
+    r.onerror=()=>rej(new Error(
+      'No se ha podido leer el diseño guardado. Quítalo y vuelve a añadirlo.'));
+    r.readAsDataURL(blob);
+  });
+}
+
+async function ghSubir(ruta,blob,mensaje){
+  const url=`https://api.github.com/repos/${GH.usuario}/${GH.repo}/contents/${ruta}`;
+  const cuerpo={message:mensaje,content:await blobABase64(blob),branch:GH.rama};
+  /* Si el archivo ya existe hay que mandar su sha para reemplazarlo */
+  try{
+    const prev=await fetch(url+'?ref='+GH.rama,{headers:{Authorization:'Bearer '+ghToken()}});
+    if(prev.ok){ cuerpo.sha=(await prev.json()).sha; }
+  }catch(e){}
+
+  const res=await fetch(url,{
+    method:'PUT',
+    headers:{
+      Authorization:'Bearer '+ghToken(),
+      Accept:'application/vnd.github+json',
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify(cuerpo)
+  });
+  if(res.status===401) throw new Error('Token de GitHub no válido o caducado');
+  if(res.status===403) throw new Error('El token no tiene permiso de escritura');
+  if(res.status===404) throw new Error('Repositorio no encontrado: revisa GH.usuario y GH.repo');
+  if(!res.ok){
+    let m='HTTP '+res.status;
+    try{ m=(await res.json()).message||m; }catch(e){}
+    throw new Error(m);
+  }
+  return res.json();
+}
+
+/* GitHub Pages tarda en republicar: esperamos a que el archivo responda
+   antes de abrir el enlace, para no enseñar un 404 al usuario. */
+async function esperarPublicacion(token,segundos){
+  const url=new URL('c/'+token+'/galeria.json',location.href).href;
+  const hasta=Date.now()+(segundos||180)*1000;
+  while(Date.now()<hasta){
+    const quedan=Math.ceil((hasta-Date.now())/1000);
+    cargaPaso('Esperando a que GitHub publique… '+quedan+' s');
+    try{
+      const r=await fetch(url+'?t='+Date.now(),{cache:'no-store'});
+      if(r.ok) return true;
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,4000));
+  }
+  return false;
+}
+
+async function publicarCliente(c,opciones){
+  if(!c.disenos.length){ alert('Este cliente no tiene diseños.'); return; }
+  if(!ghToken() && !pedirToken()) return;
+
+  const carpeta='c/'+c.token+'/';
+  const ficha={cliente:c.nombre, creado:new Date().toISOString().slice(0,10), disenos:[]};
+  const archivos=[];
+
+  c.disenos.forEach((d,i)=>{
+    const ext=(d.disenoNombre.split('.').pop()||'jpg').toLowerCase();
+    const fD='diseno-'+(i+1)+'.'+ext;
+    const fP='preview-'+(i+1)+'.png';
+    archivos.push([carpeta+fD,d.disenoBlob]);
+    archivos.push([carpeta+fP,d.previewBlob]);
+    ficha.disenos.push({
+      titulo:d.titulo, modelo:d.modelo, modelo_nombre:d.modelo_nombre,
+      diseno:fD, preview:fP, camara:d.camara
+    });
+  });
+  archivos.push([carpeta+'galeria.json',
+    new Blob([JSON.stringify(ficha,null,2)],{type:'application/json'})]);
+
+  cargaMostrar('Publicando '+c.nombre,'Comprobando archivos…');
+  try{
+    /* Todo legible antes de subir nada: así no queda media carpeta publicada */
+    for(const [,blob] of archivos){
+      if(!blob||typeof blob.size!=='number'||blob.size===0)
+        throw new Error('Hay un diseño ilegible. Quítalo y vuelve a añadirlo.');
+      await blob.slice(0,1).arrayBuffer();
+    }
+
+    for(let i=0;i<archivos.length;i++){
+      const [ruta,blob]=archivos[i];
+      const nombre=ruta.split('/').pop();
+      cargaPaso('Subiendo '+nombre+' · '+(i+1)+' de '+archivos.length,
+                (i/archivos.length)*100);
+      await ghSubir(ruta,blob,'Galería de '+c.nombre);
+    }
+    cargaPaso('Guardando…',100);
+    c.publicado=true;
+    await clientesGuardar();
+    const enlace=enlaceDe(c.token);
+    console.log('Enlace de '+c.nombre+':',enlace);
+    await copiar(enlace);
+
+    if(opciones&&opciones.abrir){
+      const listo=await esperarPublicacion(c.token,180);
+      cargaExito(listo?'Listo':'Publicado',
+        listo
+          ? 'Enlace copiado al portapapeles. Se abre en otra pestaña.'
+          : 'GitHub aún está republicando. Prueba el enlace en un minuto.',
+        enlace);
+      if(listo) window.open(enlace,'_blank');
+    }else{
+      cargaExito('Publicado',
+        'Tarda un par de minutos en actualizarse. Enlace copiado al portapapeles.',
+        enlace);
+    }
+    status('Galería de '+c.nombre+' publicada');
+  }catch(e){
+    cargaError(e.message);
+    status(e.message,true);
+  }
+}
+
+async function copiar(txt){
+  try{ await navigator.clipboard.writeText(txt); }
+  catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=txt; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+}
+
+/* ---------------- enganches ---------------- */
+$('btnSubirPrivado').onclick=subirAEnlacePrivado;
+$('btnClientes').onclick=()=>{ $('modal').hidden=false; modalPintar(); };
+$('cerrarModal').onclick=()=>{ $('modal').hidden=true; };
+$('modal').onclick=e=>{ if(e.target===$('modal')) $('modal').hidden=true; };
+$('btnNuevoCli').onclick=nuevoCliente;
+$('cargaCerrar').onclick=()=>{ $('cargando').hidden=true; };
+$('cargaCopiar').onclick=async()=>{
+  await copiar($('cargando').dataset.enlace||'');
+  $('cargaCopiar').textContent='Copiado';
+  setTimeout(()=>{$('cargaCopiar').textContent='Copiar enlace';},1600);
+};
+$('cargaAbrir').onclick=()=>{
+  const u=$('cargando').dataset.enlace;
+  if(u) window.open(u,'_blank');
+};
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ $('modal').hidden=true; }
+});
+
+clientesCargar();
 
 /* ===============================================================
    ALTA DE MODELOS
