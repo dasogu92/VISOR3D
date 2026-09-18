@@ -1550,20 +1550,57 @@ async function catalogoEditar(cambio,mensaje){
 
 /* Localiza la carpeta del modelo dentro del ZIP, esté como esté empaquetado */
 function carpetaDelModelo(zip){
-  let raiz=null, glb=null;
+  let raiz=null, glb=null, geo=null;
   zip.forEach((ruta,e)=>{
     if(e.dir||BASURA.test(ruta)) return;
     const partes=ruta.split('/').filter(Boolean);
     const nombre=partes[partes.length-1];
+    const dir=partes.slice(0,-1).join('/');
     if(nombre.toLowerCase()==='manifest.json'){
-      const dir=partes.slice(0,-1).join('/');
       if(raiz===null||dir.length<raiz.length) raiz=dir;
     }
-    if(/\.glb$/i.test(nombre)&&glb===null) glb=partes.slice(0,-1).join('/');
+    if(/\.glb$/i.test(nombre)&&glb===null) glb=dir;
+    /* Geometría legacy: .js que no sea una librería suelta */
+    if(/\.js$/i.test(nombre)&&geo===null) geo=dir;
   });
-  if(raiz!==null) return {dir:raiz, tipo:'legacy'};
-  if(glb!==null)  return {dir:glb,  tipo:'glb'};
+  if(raiz!==null) return {dir:raiz, tipo:'legacy', manifiesto:true};
+  if(glb!==null)  return {dir:glb,  tipo:'glb',    manifiesto:false};
+  if(geo!==null)  return {dir:geo,  tipo:'legacy', manifiesto:false};
   return null;
+}
+
+/* Deduce el manifiesto a partir de los archivos de la carpeta.
+   Un modelo legacy es un .js de geometría con un .json de materiales
+   del mismo nombre al lado; si hay un par con INTERIOR, es el forro. */
+function deducirManifest(nombres,codigo,tipo){
+  if(tipo==='glb'){
+    const glb=nombres.find(n=>/\.glb$/i.test(n)&&!n.includes('/'))
+           || nombres.find(n=>/\.glb$/i.test(n));
+    return {formato:'glb', codigo, file:glb};
+  }
+
+  const sinExt=n=>n.replace(/\.[^.]+$/,'');
+  const jsons=new Set(nombres.filter(n=>/\.json$/i.test(n)).map(sinExt));
+  const pares=nombres
+    .filter(n=>/\.js$/i.test(n))
+    .map(n=>({js:n, base:sinExt(n)}))
+    .filter(x=>jsons.has(x.base))
+    .map(x=>({geometry:x.js, config:x.base+'.json',
+              interior:/interior/i.test(x.base)}));
+
+  if(!pares.length){
+    throw new Error('No se encuentra ninguna geometría .js con su .json de materiales');
+  }
+
+  const ext=pares.find(x=>!x.interior)||pares[0];
+  const int=pares.find(x=>x.interior&&x!==ext);
+
+  const m={
+    formato:'legacy', codigo,
+    exterior:{geometry:ext.geometry, config:ext.config}
+  };
+  if(int) m.interior={geometry:int.geometry, config:int.config};
+  return m;
 }
 
 async function subirModeloZip(file){
@@ -1575,7 +1612,7 @@ async function subirModeloZip(file){
     const zip=await JSZip.loadAsync(file);
 
     const info=carpetaDelModelo(zip);
-    if(!info) throw new Error('El ZIP no contiene ningún manifest.json ni archivo .glb');
+    if(!info) throw new Error('El ZIP no contiene ni geometría .js ni archivo .glb');
 
     /* Todo lo que cuelga de esa carpeta, conservando subcarpetas */
     const prefijo=info.dir?info.dir+'/':'';
@@ -1603,6 +1640,17 @@ async function subirModeloZip(file){
 
     cargaMostrar('Subiendo '+codigo,'Preparando archivos…');
     const base='models/'+codigo+'/';
+
+    /* Si el ZIP no trae manifest.json, se genera a partir de los archivos */
+    if(!info.manifiesto){
+      const nombres=entradas.map(([rel])=>rel);
+      const m=deducirManifest(nombres,codigo,info.tipo);
+      m.nombre=nombre;
+      entradas.push(['manifest.json',{
+        async:async()=>new Blob([JSON.stringify(m,null,2)],{type:'application/json'})
+      }]);
+      console.log('manifest.json generado:',m);
+    }
     for(let i=0;i<entradas.length;i++){
       const [rel,e]=entradas[i];
       cargaPaso('Subiendo '+rel+' · '+(i+1)+' de '+entradas.length,
