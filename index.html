@@ -342,7 +342,7 @@
   </button>
   <div class="tools">
     <button class="ghost" id="btnLocal"><span class="larga">Abrir archivo</span><span class="corta">Abrir</span></button>
-    <button class="ghost solid" id="btnZip"><span class="larga">Añadir ZIP</span><span class="corta">ZIP</span></button>
+    <button class="ghost solid" id="btnZip"><span class="larga">Subir modelo</span><span class="corta">Modelo</span></button>
   </div>
 </header>
 
@@ -379,7 +379,7 @@
     </button>
     <input type="file" id="fileTex" accept="image/*" hidden>
     <input type="file" id="fileModel" accept=".js,.json,.glb,.gltf" hidden>
-    <input type="file" id="fileZip" accept=".zip" multiple hidden>
+    <input type="file" id="fileZip" accept=".zip" hidden>
 
     <fieldset>
       <legend>Vista</legend>
@@ -482,7 +482,7 @@
       <button class="ghost" id="btnNuevoCli">Nuevo cliente</button>
       <button class="cerrar" id="cerrarModal" aria-label="Cerrar">&times;</button>
     </div>
-    <div class="cuerpo" id="listaClientes"></div>
+    <div class="cuerpo" id="listaClientesModal"></div>
   </div>
 </div>
 
@@ -1516,6 +1516,116 @@ function attachThumb(slot,m){
 /* ===============================================================
    Alta de modelos por ZIP (carpeta DIM3D completa)
 =============================================================== */
+/* ===============================================================
+   SUBIR UN MODELO AL REPOSITORIO
+   El ZIP se descomprime en el navegador y sus archivos se suben a
+   models/<codigo>/. Después se añade la entrada a catalogo.json,
+   así el modelo queda disponible para cualquiera que abra la web.
+=============================================================== */
+const BASURA=/(^|\/)(__MACOSX|\.DS_Store|Thumbs\.db|desktop\.ini)(\/|$)/i;
+
+async function ghLeer(ruta){
+  const url=`https://api.github.com/repos/${GH.usuario}/${GH.repo}/contents/${ruta}?ref=${GH.rama}`;
+  const res=await fetch(url,{headers:{Authorization:'Bearer '+ghToken()}});
+  if(res.status===404) return null;
+  if(res.status===401) throw new Error('Token de GitHub no válido o caducado');
+  if(!res.ok) throw new Error('No se ha podido leer '+ruta);
+  const j=await res.json();
+  return {sha:j.sha, texto:decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))))};
+}
+
+/* Lee el catálogo, aplica el cambio y lo vuelve a subir */
+async function catalogoEditar(cambio,mensaje){
+  const actual=await ghLeer(CONFIG.catalogo);
+  let datos={modelos:[]};
+  if(actual){
+    try{ datos=JSON.parse(actual.texto); }catch(e){ datos={modelos:[]}; }
+    if(!Array.isArray(datos.modelos)) datos.modelos=datos.models||[];
+  }
+  cambio(datos);
+  await ghSubir(CONFIG.catalogo,
+    new Blob([JSON.stringify(datos,null,2)],{type:'application/json'}),
+    mensaje);
+}
+
+/* Localiza la carpeta del modelo dentro del ZIP, esté como esté empaquetado */
+function carpetaDelModelo(zip){
+  let raiz=null, glb=null;
+  zip.forEach((ruta,e)=>{
+    if(e.dir||BASURA.test(ruta)) return;
+    const partes=ruta.split('/').filter(Boolean);
+    const nombre=partes[partes.length-1];
+    if(nombre.toLowerCase()==='manifest.json'){
+      const dir=partes.slice(0,-1).join('/');
+      if(raiz===null||dir.length<raiz.length) raiz=dir;
+    }
+    if(/\.glb$/i.test(nombre)&&glb===null) glb=partes.slice(0,-1).join('/');
+  });
+  if(raiz!==null) return {dir:raiz, tipo:'legacy'};
+  if(glb!==null)  return {dir:glb,  tipo:'glb'};
+  return null;
+}
+
+async function subirModeloZip(file){
+  if(!ghToken() && !pedirToken()) return;
+
+  cargaMostrar('Subiendo modelo','Descomprimiendo…');
+  try{
+    if(!window.JSZip) await loadScript(CDN.jszip);
+    const zip=await JSZip.loadAsync(file);
+
+    const info=carpetaDelModelo(zip);
+    if(!info) throw new Error('El ZIP no contiene ningún manifest.json ni archivo .glb');
+
+    /* Todo lo que cuelga de esa carpeta, conservando subcarpetas */
+    const prefijo=info.dir?info.dir+'/':'';
+    const entradas=[];
+    zip.forEach((ruta,e)=>{
+      if(e.dir||BASURA.test(ruta)) return;
+      if(!ruta.startsWith(prefijo)) return;
+      const rel=ruta.slice(prefijo.length);
+      if(rel) entradas.push([rel,e]);
+    });
+    if(!entradas.length) throw new Error('La carpeta del modelo está vacía');
+
+    /* El código sale del nombre de la carpeta; se puede corregir */
+    const hoja=(info.dir.split('/').pop()||file.name.replace(/\.zip$/i,''));
+    $('cargando').hidden=true;
+    let codigo=(hoja.match(/\d{3,4}/)||[''])[0];
+    codigo=(prompt('Código del modelo (será el nombre de su carpeta):',codigo)||'').trim();
+    if(!codigo) return;
+
+    if(S.models.some(m=>m.code===codigo)){
+      if(!confirm('El modelo '+codigo+' ya está en el catálogo.\n\n'+
+                  'Si continúas se reemplazarán sus archivos. ¿Seguir?')) return;
+    }
+    const nombre=(prompt('Nombre del modelo:',hoja)||hoja).trim();
+
+    cargaMostrar('Subiendo '+codigo,'Preparando archivos…');
+    const base='models/'+codigo+'/';
+    for(let i=0;i<entradas.length;i++){
+      const [rel,e]=entradas[i];
+      cargaPaso('Subiendo '+rel+' · '+(i+1)+' de '+entradas.length,
+                (i/(entradas.length+1))*100);
+      await ghSubir(base+rel, await e.async('blob'), 'Modelo '+codigo);
+    }
+
+    cargaPaso('Actualizando el catálogo…',(entradas.length/(entradas.length+1))*100);
+    await catalogoEditar(cat=>{
+      cat.modelos=cat.modelos.filter(m=>(m.codigo||m.code)!==codigo);
+      cat.modelos.push({codigo, nombre, carpeta:codigo, formato:info.tipo});
+      cat.modelos.sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo)));
+    },'Catálogo: '+codigo+' '+nombre);
+
+    cargaExito('Modelo subido',
+      codigo+' · '+nombre+'. Tarda un par de minutos en aparecer en la parrilla.');
+    status('Modelo '+codigo+' subido');
+  }catch(e){
+    console.error(e);
+    cargaError(e.message||String(e));
+  }
+}
+
 async function importarZips(files){
   $('btnZip').disabled=true;
   toast('Descomprimiendo…',0);
@@ -1935,7 +2045,7 @@ async function anadirDisenoA(c){
 
 /* ---------------- ventana de clientes ---------------- */
 function modalPintar(){
-  const cont=$('listaClientes');
+  const cont=$('listaClientesModal');
   cont.innerHTML='';
   if(!clientes.length){
     cont.innerHTML='<p class="vacio">Crea un cliente para empezar.</p>';
@@ -2245,7 +2355,7 @@ $('toggleAll').onclick=e=>{
   e.target.textContent=S.verTodo?'Solo disponibles':'Ver todo';
   renderCats(); renderGallery();
 };
-$('fileZip').onchange=e=>{ if(e.target.files.length) importarZips([...e.target.files]); e.target.value=''; };
+$('fileZip').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) subirModeloZip(f); };
 $('fileModel').onchange=async e=>{
   const f=e.target.files[0]; e.target.value='';
   if(!f) return;
@@ -2310,7 +2420,7 @@ document.querySelectorAll('.vid').forEach(b=>{
 document.addEventListener('drop',e=>{
   const fs=[...e.dataTransfer.files]; if(!fs.length) return;
   const zips=fs.filter(f=>/\.zip$/i.test(f.name));
-  if(zips.length){ importarZips(zips); return; }
+  if(zips.length){ subirModeloZip(zips[0]); return; }
   if($('viewer').classList.contains('on')) applyImage(fs[0]);
 });
 
