@@ -1374,6 +1374,17 @@ async function comprobarDisponibles(){
 }
 
 async function loadCatalog(){
+  try{ await loadCatalogInterno(); }
+  catch(e){
+    console.error(e);
+    $('empty').hidden=false;
+    $('filterbar').hidden=true;
+    $('emptyTitle').textContent='Error al arrancar';
+    $('emptyBody').textContent=(e&&e.message)||String(e);
+  }
+}
+
+async function loadCatalogInterno(){
   let raw=null;
   try{
     const res=await fetch(CONFIG.catalogo,{cache:'no-store'});
@@ -1394,8 +1405,10 @@ async function loadCatalog(){
   S.models=list.map(normaliza);
   S.total=S.models.length;
   renderCats(); renderGallery();
-  await comprobarDisponibles();
-  await cargarLocales();
+  try{ await comprobarDisponibles(); }
+  catch(e){ console.error('Comprobación de archivos:',e); }
+  try{ await cargarLocales(); }
+  catch(e){ console.error('Modelos locales:',e); }
   renderCats(); renderGallery();
 }
 
@@ -1435,7 +1448,7 @@ function renderCats(){
     b.onclick=()=>{S.filter=c;renderCats();renderGallery();};
     nav.appendChild(b);
   });
-  $('filterbar').hidden=!S.models.length;
+  $('filterbar').hidden=!S.total;
 }
 function visibleModels(){
   const q=S.query.trim().toLowerCase();
@@ -1455,7 +1468,26 @@ function renderGallery(){
     ? `${list.length} de ${S.total} · ${disp} disponibles`
     : `${list.length} disponibles de ${S.total}`;
   const grid=$('grid'); grid.innerHTML='';
-  $('empty').hidden=list.length>0||!S.total;
+
+  /* Si no hay nada que enseñar, decir por qué */
+  if(!list.length){
+    $('empty').hidden=false;
+    if(!S.total){
+      $('emptyTitle').textContent='Catálogo vacío';
+      $('emptyBody').innerHTML='Se ha leído <code>'+CONFIG.catalogo+'</code> pero no contiene modelos.';
+    }else if(!S.models.some(m=>m.disponible)){
+      $('emptyTitle').textContent='No se encuentran los archivos';
+      $('emptyBody').innerHTML=
+        'El catálogo tiene '+S.total+' modelo'+(S.total===1?'':'s')+
+        ', pero no responde ninguno en <code>'+(S.base||CONFIG.bases[0])+'</code>.'+
+        '<br>Pulsa VER TODO para abrirlos igualmente.';
+    }else{
+      $('emptyTitle').textContent='Sin resultados';
+      $('emptyBody').textContent='Prueba con otra búsqueda o cambia de categoría.';
+    }
+  }else{
+    $('empty').hidden=true;
+  }
 
   const frag=document.createDocumentFragment();
   const pendientes=[];
