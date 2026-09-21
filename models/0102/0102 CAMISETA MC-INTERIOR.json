@@ -1,0 +1,43 @@
+{
+	"type": "PhongMaterial",
+	"modelo": "0102 CAMISETA MC-INTERIOR.js",
+	"map": "INTERIOR.jpg",
+	"normalMap": "",
+	"alphaMap": "",
+	"aoMap": "",
+	"lightMap": "",
+	"specularMap": "",
+	"bumpMap": "",
+	"specular": {
+		"r": 0.6,
+		"g": 0.6,
+		"b": 0.6
+	},
+	"shininess": 8,
+	"transparent": false,
+	"opacity": 1,
+	"color": {
+		"r": 1,
+		"g": 1,
+		"b": 1
+	},
+	"normalScale": {
+		"x": 1,
+		"y": 1
+	},
+	"position": {
+		"x": 0,
+		"y": 0,
+		"z": 0
+	},
+	"rotation": {
+		"x": 0,
+		"y": 0,
+		"z": 0
+	},
+	"scale": {
+		"x": 1,
+		"y": 1,
+		"z": 1
+	}
+}
