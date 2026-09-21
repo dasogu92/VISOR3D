@@ -1,0 +1,13 @@
+{
+  "formato": "legacy",
+  "codigo": "0102",
+  "exterior": {
+    "geometry": "0102 CAMISETA MC.js",
+    "config": "0102 CAMISETA MC.json"
+  },
+  "interior": {
+    "geometry": "0102 CAMISETA MC-INTERIOR.js",
+    "config": "0102 CAMISETA MC-INTERIOR.json"
+  },
+  "nombre": "0102 CAMISETA MC"
+}
