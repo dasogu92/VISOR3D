@@ -7,6 +7,12 @@
       "formato": "legacy"
     },
     {
+      "codigo": "0102",
+      "nombre": "0102 CAMISETA MC",
+      "carpeta": "0102",
+      "formato": "legacy"
+    },
+    {
       "codigo": "0917",
       "nombre": "PANTALON CORTO ENERGY UNI 0917",
       "carpeta": "0917",
