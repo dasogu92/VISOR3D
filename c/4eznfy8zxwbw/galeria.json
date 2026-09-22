@@ -29,6 +29,20 @@
         "luzKey": 0.2,
         "luzFill": 0.48
       }
+    },
+    {
+      "titulo": "MURCIA MARATON",
+      "modelo": "0102",
+      "modelo_nombre": "0102 CAMISETA MC",
+      "diseno": "diseno-3.jpg",
+      "preview": "preview-3.png",
+      "camara": {
+        "theta": 6.126399999999998,
+        "phi": 1.3073166941154082,
+        "dist": 193.78716861087702,
+        "luzKey": 0.2,
+        "luzFill": 0.48
+      }
     }
   ]
 }
