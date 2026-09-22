@@ -1,0 +1,20 @@
+{
+  "cliente": "MARATON MURCIA BLANCA",
+  "creado": "2026-09-22",
+  "disenos": [
+    {
+      "titulo": "MARATON MURCIA BLANCA",
+      "modelo": "0100",
+      "modelo_nombre": "0100 CAMISETA ML",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": 0,
+        "phi": 1.413716694115407,
+        "dist": 141.93488286647664,
+        "luzKey": 0.3,
+        "luzFill": 0.3
+      }
+    }
+  ]
+}
