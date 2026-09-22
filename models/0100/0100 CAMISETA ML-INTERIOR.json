@@ -2,7 +2,7 @@
 	"type": "PhongMaterial",
 	"modelo": "0100 CAMISETA ML-INTERIOR.js",
 	"map": "INTERIOR.jpg",
-	"normalMap": "0100 CAMISETA ML_NORMALMAP.png",
+	"normalMap": "",
 	"alphaMap": "",
 	"aoMap": "",
 	"lightMap": "",
