@@ -1,0 +1,20 @@
+{
+  "cliente": "MURCIA MARATON",
+  "creado": "2026-09-22",
+  "disenos": [
+    {
+      "titulo": "MARATON MURCIA",
+      "modelo": "0100",
+      "modelo_nombre": "0100 CAMISETA ML",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": -6.395199999999995,
+        "phi": 1.3801166941154077,
+        "dist": 139.22713686646904,
+        "luzKey": 0.3,
+        "luzFill": 0.3
+      }
+    }
+  ]
+}
