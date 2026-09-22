@@ -75,6 +75,29 @@
   }
   .ghost:hover{background:var(--ink);color:var(--paper)}
 
+  /* ---- comentarios ---- */
+  .comentar{
+    position:absolute;right:16px;top:16px;width:300px;max-width:calc(100% - 32px);
+    background:var(--paper);border:1px solid var(--ink);padding:16px;display:none;
+  }
+  .comentar.on{display:block}
+  .comentar h3{margin:0 0 4px;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+  .comentar .sobre{margin:0 0 12px;font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+  .comentar textarea,.comentar input{
+    width:100%;border:1px solid var(--rule);background:var(--paper);color:inherit;
+    padding:8px;font:inherit;font-size:12px;margin-bottom:8px;resize:vertical;
+  }
+  .comentar textarea{min-height:110px}
+  .comentar textarea:focus,.comentar input:focus{outline:none;border-color:var(--accent)}
+  .comentar .fila{display:flex;gap:8px;flex-wrap:wrap}
+  .comentar .fila .ghost{flex:1 1 auto;text-align:center;background:none}
+  .comentar .cerrar{
+    position:absolute;right:10px;top:8px;background:none;border:none;cursor:pointer;
+    font-size:16px;line-height:1;color:var(--muted);padding:4px;
+  }
+  .comentar .cerrar:hover{color:var(--accent)}
+  .comentar .ok{margin:10px 0 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+
   .aviso{margin:16vh auto;padding:0 var(--pad);max-width:520px;text-align:center}
   .aviso h2{font-size:15px;letter-spacing:.2em;text-transform:uppercase;margin:0 0 12px}
   .aviso p{color:var(--muted);margin:0}
@@ -92,6 +115,10 @@
     .hint.tactil{display:block;right:auto;left:var(--pad);bottom:10px;font-size:9px}
     .status{bottom:26px;font-size:9px;max-width:90%}
     .acciones{left:var(--pad);top:12px}
+    .comentar{
+      position:static;width:100%;max-width:none;border-left:none;border-right:none;
+      border-bottom:none;margin:0;
+    }
   }
 </style>
 </head>
@@ -108,6 +135,17 @@
     <div class="acciones">
       <button class="ghost" id="btnPng">Descargar PNG</button>
       <button class="ghost" id="btn4">4 vistas</button>
+      <button class="ghost" id="btnComentar">Comentar</button>
+    </div>
+
+    <div class="comentar" id="panelComentar">
+      <button class="cerrar" id="cerrarComentar" aria-label="Cerrar">&times;</button>
+      <h3>Comentarios</h3>
+      <p class="sobre" id="sobreQue"></p>
+      <input id="cmtNombre" type="text" placeholder="Tu nombre" autocomplete="name">
+      <textarea id="cmtTexto" placeholder="¿Qué cambiarías? Colores, posición del logo, talla…"></textarea>
+      <div class="fila" id="filaEnvio"></div>
+      <p class="ok" id="cmtOk" hidden>Enviado. Gracias.</p>
     </div>
     <p class="status" id="status">Cargando…</p>
     <p class="hint">Arrastrar: girar · Rueda: zoom · Doble clic: vista inicial</p>
@@ -883,14 +921,40 @@ async function detectarBase(codigo){
   return CONFIG.bases[0];
 }
 
+/* Libera geometría y texturas de un modelo retirado */
+function liberar(obj){
+  obj.traverse(n=>{
+    if(n.geometry) n.geometry.dispose();
+    if(n.material){
+      (Array.isArray(n.material)?n.material:[n.material]).forEach(m=>{
+        ['map','normalMap','alphaMap','specularMap','emissiveMap'].forEach(k=>{
+          if(m[k]&&m[k].dispose) m[k].dispose();
+        });
+        m.dispose();
+      });
+    }
+  });
+}
+
+/* Deja la escena con un único modelo, pase lo que pase */
+function quitarModelos(){
+  const fuera=[];
+  S.scene.traverse(n=>{ if(n.isMesh||n.isGroup) fuera.push(n); });
+  fuera.forEach(n=>{ if(n.parent===S.scene){ S.scene.remove(n); liberar(n); } });
+  S.root=null;
+}
+
+let cargaSeq=0;
+
 async function abrirDiseno(d,boton){
+  const mio=++cargaSeq;                 // cada clic invalida la carga anterior
   document.querySelectorAll('.item').forEach(b=>b.setAttribute('aria-current','false'));
   if(boton) boton.setAttribute('aria-current','true');
   S.actual={code:d.modelo,name:d.modelo_nombre||d.titulo};
   S.designURL=CARPETA+d.diseno;
   status('Cargando prenda…');
 
-  if(S.root){ S.scene.remove(S.root); S.root=null; }
+  quitarModelos();
   S.materiales=[];
   try{
     if(!S.base) S.base=await detectarBase(d.modelo);
@@ -899,6 +963,11 @@ async function abrirDiseno(d,boton){
     const obj=(manifest.format==='glb')
       ? await loadGLBModel(basePath,manifest,d.modelo,S.designURL)
       : await loadLegacyModel(basePath,manifest,S.designURL);
+
+    /* Si mientras cargaba se ha pedido otra prenda, esta ya no vale */
+    if(mio!==cargaSeq){ liberar(obj); return; }
+
+    quitarModelos();
     S.root=obj; S.scene.add(obj);
     fitToView(obj);
     if(d.camara){
@@ -911,6 +980,7 @@ async function abrirDiseno(d,boton){
     aplicarColor();
     status(d.titulo);
   }catch(e){
+    if(mio!==cargaSeq) return;
     console.error(e);
     status('No se ha podido cargar la prenda',true);
   }
@@ -953,6 +1023,118 @@ async function arrancar(){
   });
   if(!(ficha.disenos||[]).length) status('Todavía no hay diseños');
 }
+
+/* ===============================================================
+   Comentarios del cliente
+   Sin servidor: se envían por formulario, correo o WhatsApp.
+=============================================================== */
+const CONTACTO={
+  /* Opción 1 (recomendada): pega aquí tu endpoint de Formspree
+     y el comentario te llega al correo sin que el cliente abra nada.
+     Se crea gratis en formspree.io y tiene esta forma:
+     'https://formspree.io/f/xxxxxxxx'                                   */
+  formspree:'',
+
+  /* Opción 2: tu correo. Abre el programa de correo del cliente.        */
+  email:'',
+
+  /* Opción 3: tu móvil con prefijo, sin espacios ni signos: '34600111222' */
+  whatsapp:''
+};
+
+function mensajeComentario(){
+  const d=S.actual||{};
+  const nombre=($('cmtNombre').value||'').trim();
+  const texto=($('cmtTexto').value||'').trim();
+  return {
+    nombre, texto,
+    asunto:'Cambios en '+(d.name||'diseño')+(ficha&&ficha.cliente?' — '+ficha.cliente:''),
+    cuerpo:
+      (nombre?'De: '+nombre+'\n':'')+
+      (ficha&&ficha.cliente?'Cliente: '+ficha.cliente+'\n':'')+
+      'Diseño: '+(d.name||'')+'\n'+
+      'Modelo: '+(d.code||'')+'\n'+
+      'Enlace: '+location.href+'\n\n'+
+      texto
+  };
+}
+
+function pintarBotonesEnvio(){
+  const fila=$('filaEnvio');
+  fila.innerHTML='';
+  const añade=(txt,fn)=>{
+    const b=document.createElement('button');
+    b.className='ghost'; b.textContent=txt; b.onclick=fn;
+    fila.appendChild(b);
+  };
+
+  if(CONTACTO.formspree) añade('Enviar',enviarFormspree);
+  if(CONTACTO.email)     añade('Por correo',enviarCorreo);
+  if(CONTACTO.whatsapp)  añade('WhatsApp',enviarWhatsapp);
+  añade('Copiar',copiarComentario);
+}
+
+function validar(m){
+  if(!m.texto){ $('cmtTexto').focus(); return false; }
+  return true;
+}
+
+async function enviarFormspree(){
+  const m=mensajeComentario(); if(!validar(m)) return;
+  const b=event.target; b.disabled=true; b.textContent='Enviando…';
+  try{
+    const res=await fetch(CONTACTO.formspree,{
+      method:'POST',
+      headers:{'Content-Type':'application/json',Accept:'application/json'},
+      body:JSON.stringify({
+        nombre:m.nombre, cliente:(ficha&&ficha.cliente)||'',
+        diseno:(S.actual&&S.actual.name)||'', modelo:(S.actual&&S.actual.code)||'',
+        enlace:location.href, mensaje:m.texto
+      })
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    $('cmtTexto').value='';
+    $('cmtOk').hidden=false;
+    setTimeout(()=>{ $('cmtOk').hidden=true; $('panelComentar').classList.remove('on'); },2200);
+  }catch(e){
+    alert('No se ha podido enviar. Copia el texto y mándanoslo por correo.');
+  }finally{ b.disabled=false; b.textContent='Enviar'; }
+}
+
+function enviarCorreo(){
+  const m=mensajeComentario(); if(!validar(m)) return;
+  location.href='mailto:'+CONTACTO.email+
+    '?subject='+encodeURIComponent(m.asunto)+
+    '&body='+encodeURIComponent(m.cuerpo);
+}
+
+function enviarWhatsapp(){
+  const m=mensajeComentario(); if(!validar(m)) return;
+  window.open('https://wa.me/'+CONTACTO.whatsapp+'?text='+encodeURIComponent(m.cuerpo),'_blank');
+}
+
+async function copiarComentario(){
+  const m=mensajeComentario(); if(!validar(m)) return;
+  try{ await navigator.clipboard.writeText(m.cuerpo); }
+  catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=m.cuerpo; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  const b=event.target; const t=b.textContent;
+  b.textContent='Copiado'; setTimeout(()=>{b.textContent=t;},1600);
+}
+
+$('btnComentar').onclick=()=>{
+  const p=$('panelComentar');
+  p.classList.toggle('on');
+  if(p.classList.contains('on')){
+    $('sobreQue').textContent=(S.actual&&S.actual.name)||'';
+    $('cmtTexto').focus();
+  }
+};
+$('cerrarComentar').onclick=()=>$('panelComentar').classList.remove('on');
+pintarBotonesEnvio();
 
 $('btnPng').onclick=exportarCaptura;
 $('btn4').onclick=exportar4Vistas;
