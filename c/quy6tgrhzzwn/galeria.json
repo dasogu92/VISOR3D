@@ -1,0 +1,20 @@
+{
+  "cliente": "MARATON MURCIA BURGUNDY",
+  "creado": "2026-09-22",
+  "disenos": [
+    {
+      "titulo": "MARATON MURCIA BURGUNDY",
+      "modelo": "0102",
+      "modelo_nombre": "0102 CAMISETA MC",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": -3.2144,
+        "phi": 1.4361166941154075,
+        "dist": 153.83450233932595,
+        "luzKey": 0.3,
+        "luzFill": 0.3
+      }
+    }
+  ]
+}
