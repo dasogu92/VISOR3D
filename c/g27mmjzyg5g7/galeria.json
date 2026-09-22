@@ -1,0 +1,20 @@
+{
+  "cliente": "RUMM",
+  "creado": "2026-09-22",
+  "disenos": [
+    {
+      "titulo": "MURCIA MARATON",
+      "modelo": "0100",
+      "modelo_nombre": "0100 CAMISETA ML",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": 6.1544,
+        "phi": 1.4249166941154063,
+        "dist": 153.93494301451787,
+        "luzKey": 0.3,
+        "luzFill": 0.3
+      }
+    }
+  ]
+}
