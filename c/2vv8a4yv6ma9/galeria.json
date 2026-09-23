@@ -15,6 +15,20 @@
         "luzKey": 0.1,
         "luzFill": 0.8
       }
+    },
+    {
+      "titulo": "MURCIA MARATON GRANATE V2",
+      "modelo": "0102",
+      "modelo_nombre": "0102 CAMISETA MC",
+      "diseno": "diseno-2.jpg",
+      "preview": "preview-2.png",
+      "camara": {
+        "theta": 0,
+        "phi": 1.413716694115407,
+        "dist": 142.4393540178944,
+        "luzKey": 0.1,
+        "luzFill": 0.8
+      }
     }
   ]
 }
