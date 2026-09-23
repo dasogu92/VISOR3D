@@ -1,0 +1,20 @@
+{
+  "cliente": "MURCIA MARATON FINISHER",
+  "creado": "2026-09-23",
+  "disenos": [
+    {
+      "titulo": "MURCIA MARATON FINISHER V1",
+      "modelo": "0100",
+      "modelo_nombre": "0100 CAMISETA ML",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": 1.6632000000000002,
+        "phi": 1.452916694115407,
+        "dist": 141.93488286647664,
+        "luzKey": 0.1,
+        "luzFill": 0.8
+      }
+    }
+  ]
+}
