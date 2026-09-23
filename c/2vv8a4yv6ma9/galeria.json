@@ -1,0 +1,20 @@
+{
+  "cliente": "MURCIA MARATON GRANATE",
+  "creado": "2026-09-23",
+  "disenos": [
+    {
+      "titulo": "MURCIA MARATON GRANATE",
+      "modelo": "0102",
+      "modelo_nombre": "0102 CAMISETA MC",
+      "diseno": "diseno-1.jpg",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": 12.499200000000004,
+        "phi": 1.3633166941154062,
+        "dist": 142.4393540178944,
+        "luzKey": 0.1,
+        "luzFill": 0.8
+      }
+    }
+  ]
+}
