@@ -306,19 +306,52 @@
       border-right:none;border-top:1px solid var(--rule);
       overflow:visible;padding:20px var(--pad) 32px;gap:20px;
     }
-    .panel .title{font-size:16px}
-    .row label{width:72px}
+    .panel .title{font-size:16px;letter-spacing:.08em}
+    .panel .subtitle{font-size:9px}
+
+    /* Etiqueta encima del control: a 72px el texto se partía */
+    .row{flex-wrap:wrap;gap:6px 10px}
+    .row label{width:100%;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+    .row input[type=range]{flex:1 1 auto}
+    .row select,.row .campo{flex:1 1 100%}
+    .row output{width:auto;min-width:42px}
+
     .actions .ghost{flex:1 1 auto;text-align:center;padding:12px 10px}
+    .nota{font-size:9px}
+
     .hint{display:none}
-    .hint.tactil{display:block;right:auto;left:var(--pad);bottom:10px;font-size:9px}
+    .hint.tactil{display:none}
+    .status{top:10px;bottom:auto;left:var(--pad);max-width:88%;font-size:9px}
     .toast{bottom:20px;font-size:9px;padding:10px 14px}
-    .caja{max-height:92vh}
-    .cliBtns{margin-left:0;width:100%}
-    .cliBtns .ghost{flex:1 1 auto;text-align:center}
-    .status{bottom:26px;font-size:9px;max-width:90%}
+
+    /* Ventana de clientes a pantalla completa */
+    .modal{padding:0;align-items:stretch}
+    .caja{width:100%;max-height:100%;height:100%;border:none}
+    .cabecera{padding:14px var(--pad)}
+    .cabecera h2{font-size:12px}
+    .cliTop{gap:6px}
+    .cliNom{flex:1 0 100%;font-size:11px}
+    .cliNum{flex:1 0 100%;font-size:9px}
+    .cliBtns{margin-left:0;width:100%;margin-top:8px}
+    .cliBtns .ghost{flex:1 1 auto;text-align:center;padding:10px 8px}
+    .dis{font-size:10px}
+    .enlace{font-size:9px}
+
+    .cajaCarga{width:100%}
+    .cargaTit{font-size:13px}
+    .cargaSub{font-size:9px}
+    .campoGrande{font-size:16px}          /* 16px evita el zoom de iOS */
+    .cargaBtns .ghost{flex:1 1 auto;text-align:center;padding:12px 10px}
   }
 
   /* ---------- móvil estrecho ---------- */
+  @media (max-width:420px){
+    .wordmark{font-size:16px;letter-spacing:.3em;text-indent:.3em}
+    .stage{height:46vh;height:46dvh}
+    .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px}
+    .card .nom{font-size:9px;letter-spacing:.05em}
+  }
+
   @media (max-width:520px){
     .masthead{flex-wrap:wrap;justify-content:flex-start;padding-bottom:12px}
     .wordmark{order:1;margin-right:auto}
@@ -1603,6 +1636,22 @@ function deducirManifest(nombres,codigo,tipo){
   return m;
 }
 
+/* GitHub Pages tarda en republicar: se espera a que el archivo responda */
+async function esperarArchivo(ruta,segundos){
+  const url=new URL(ruta,location.href).href;
+  const hasta=Date.now()+(segundos||180)*1000;
+  while(Date.now()<hasta){
+    const quedan=Math.ceil((hasta-Date.now())/1000);
+    cargaPaso('Esperando a que GitHub publique… '+quedan+' s');
+    try{
+      const r=await fetch(url+'?t='+Date.now(),{cache:'no-store'});
+      if(r.ok) return true;
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,4000));
+  }
+  return false;
+}
+
 async function subirModeloZip(file){
   if(!ghToken() && !pedirToken()) return;
 
@@ -1664,6 +1713,24 @@ async function subirModeloZip(file){
       cat.modelos.push({codigo, nombre, carpeta:codigo, formato:info.tipo});
       cat.modelos.sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo)));
     },'Catálogo: '+codigo+' '+nombre);
+
+    /* Miniatura: si el ZIP no traía imagen, se genera y se sube como
+       captura1.png, para que la vea todo el que abra la web. */
+    const traeImagen=entradas.some(([rel])=>/\.(png|jpe?g)$/i.test(rel)
+                                         && !/normal|alpha|spec|interior|bump/i.test(rel));
+    if(!traeImagen){
+      try{
+        cargaPaso('Esperando a que GitHub publique el modelo…');
+        const base2=(S.base||CONFIG.bases[0]);
+        const listo=await esperarArchivo(base2+codigo+'/'+CONFIG.manifiesto,180);
+        if(listo){
+          cargaPaso('Generando la miniatura…');
+          const dataURL=await renderMiniatura({code:codigo,folder:codigo,format:info.tipo});
+          const bin=await (await fetch(dataURL)).blob();
+          await ghSubir(base2+codigo+'/captura1.png',bin,'Miniatura '+codigo);
+        }
+      }catch(e){ console.warn('Miniatura automática:',e); }
+    }
 
     cargaExito('Modelo subido',
       codigo+' · '+nombre+'. Tarda un par de minutos en aparecer en la parrilla.');
@@ -2319,24 +2386,35 @@ async function publicarCliente(c,opciones){
     const ext=(d.disenoNombre.split('.').pop()||'jpg').toLowerCase();
     const fD='diseno-'+(i+1)+'.'+ext;
     const fP='preview-'+(i+1)+'.png';
-    archivos.push([carpeta+fD,d.disenoBlob]);
-    archivos.push([carpeta+fP,d.previewBlob]);
+    archivos.push([carpeta+fD,d.disenoBlob,d.titulo]);
+    archivos.push([carpeta+fP,d.previewBlob,d.titulo]);
     ficha.disenos.push({
       titulo:d.titulo, modelo:d.modelo, modelo_nombre:d.modelo_nombre,
       diseno:fD, preview:fP, camara:d.camara
     });
   });
   archivos.push([carpeta+'galeria.json',
-    new Blob([JSON.stringify(ficha,null,2)],{type:'application/json'})]);
+    new Blob([JSON.stringify(ficha,null,2)],{type:'application/json'}),'índice']);
 
   $('modal').hidden=true;
   cargaMostrar('Publicando '+c.nombre,'Comprobando archivos…');
   try{
-    /* Todo legible antes de subir nada: así no queda media carpeta publicada */
-    for(const [,blob] of archivos){
-      if(!blob||typeof blob.size!=='number'||blob.size===0)
-        throw new Error('Hay un diseño ilegible. Quítalo y vuelve a añadirlo.');
-      await blob.slice(0,1).arrayBuffer();
+    /* Todo legible antes de subir nada: así no queda media carpeta publicada.
+       Si algo falla, se dice QUÉ diseño es, que es lo único accionable. */
+    const rotos=[];
+    for(const [,blob,etiqueta] of archivos){
+      let ok=false;
+      try{
+        ok = blob && typeof blob.size==='number' && blob.size>0;
+        if(ok) await blob.slice(0,1).arrayBuffer();
+      }catch(e){ ok=false; }
+      if(!ok && !rotos.includes(etiqueta)) rotos.push(etiqueta);
+    }
+    if(rotos.length){
+      throw new Error(
+        (rotos.length===1?'El diseño «'+rotos[0]+'» ya no se puede leer.'
+                         :'Estos diseños ya no se pueden leer: '+rotos.map(r=>'«'+r+'»').join(', ')+'.')
+        +' Ábrelo en Clientes, pulsa Quitar y vuelve a añadirlo.');
     }
 
     for(let i=0;i<archivos.length;i++){

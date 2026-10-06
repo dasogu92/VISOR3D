@@ -120,23 +120,72 @@
 
   @media (max-width:860px){
     :root{--pad:16px}
+    .masthead{min-height:58px;padding:12px var(--pad)}
+    .quien{
+      position:static;transform:none;margin-left:auto;
+      max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+
     .main{flex-direction:column}
-    .stage{order:1;flex:none;height:56vh;height:56dvh;min-height:300px}
+    .stage{order:1;flex:none;height:52vh;height:52dvh;min-height:280px}
+
+    /* Los botones bajan a una tira fija en el borde inferior del visor:
+       flotando arriba se montaban sobre la prenda y entre ellos. */
+    .acciones{
+      left:0;right:0;top:auto;bottom:0;
+      display:flex;gap:8px;flex-wrap:nowrap;
+      padding:8px var(--pad);
+      background:rgba(255,255,255,.93);
+      border-top:1px solid var(--rule);
+      overflow-x:auto;-webkit-overflow-scrolling:touch;
+    }
+    .acciones::-webkit-scrollbar{height:0}
+    .acciones .ghost{flex:none;padding:11px 13px;background:none;border-color:var(--rule)}
+
+    /* El estado sube arriba: abajo lo tapaban los botones */
+    .status{top:10px;bottom:auto;left:var(--pad);max-width:88%;font-size:9px}
+    .hint{display:none}
+    .hint.tactil{display:none}
+
     .tira{
       order:2;width:100%;border-right:none;border-top:1px solid var(--rule);
-      flex-direction:row;overflow-x:auto;overflow-y:hidden;gap:12px;padding:14px var(--pad);
+      flex-direction:row;overflow-x:auto;overflow-y:hidden;gap:12px;
+      padding:14px var(--pad);scroll-snap-type:x proximity;
     }
-    .item{flex:none;width:110px}
-    .hint{display:none}
-    .hint.tactil{display:block;right:auto;left:var(--pad);bottom:10px;font-size:9px}
-    .status{bottom:26px;font-size:9px;max-width:90%}
-    .acciones{left:var(--pad);top:12px}
-    .fichaTop{flex-wrap:wrap}
-    .fichaTit{flex:1 0 100%}
+    .tira::-webkit-scrollbar{height:0}
+    .item{flex:none;width:112px;scroll-snap-align:start}
+    .item .tit{font-size:9px;letter-spacing:.06em}
+
+    /* Comentarios a pantalla completa: dentro del visor no cabía */
     .comentar{
-      position:static;width:100%;max-width:none;border-left:none;border-right:none;
-      border-bottom:none;margin:0;
+      position:fixed;inset:0;z-index:48;
+      width:auto;max-width:none;border:none;
+      padding:56px var(--pad) var(--pad);
+      overflow-y:auto;
     }
+    .comentar h3{font-size:12px}
+    .comentar textarea{min-height:34vh;font-size:16px}  /* 16px evita el zoom de iOS */
+    .comentar input{font-size:16px}
+    .comentar .cerrar{right:var(--pad);top:14px;font-size:22px}
+    .comentar .fila .ghost{padding:12px 10px}
+
+    .fichaTop{flex-wrap:wrap;gap:8px}
+    .fichaTit{flex:1 0 100%;font-size:10px}
+    .fichaTop .ghost{flex:1 1 auto;text-align:center}
+    .fichaCuerpo{padding:10px}
+  }
+
+  @media (max-width:420px){
+    .wordmark{font-size:16px;letter-spacing:.3em;text-indent:.3em}
+    .quien{font-size:9px;max-width:45%}
+    .stage{height:46vh;height:46dvh}
+    .item{width:96px}
+  }
+
+  @media (max-height:520px) and (orientation:landscape){
+    .masthead{min-height:48px;padding:8px var(--pad)}
+    .stage{height:66vh;height:66dvh}
+    .item{width:86px}
   }
 </style>
 </head>
