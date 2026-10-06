@@ -1859,12 +1859,27 @@ function situarCamara(theta,phi,dist){
 function lienzoABlob(){
   return new Promise(res=>S.renderer.domElement.toBlob(res,'image/png'));
 }
-function descargar(blob,nombre){
+/* En iOS el atributo download no funciona con archivos generados: Safari
+   ignora el clic. La vía nativa es el menú de compartir. */
+async function descargar(blob,nombre){
+  try{
+    const file=new File([blob],nombre,{type:blob.type||'application/octet-stream'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file]});
+      return;
+    }
+  }catch(e){
+    if(e && e.name==='AbortError') return;
+  }
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=nombre;
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+  if('download' in a){
+    a.href=url; a.download=nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+  }else{
+    window.open(url,'_blank');
+  }
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
 function nombreBase(){
   const m=S.actual;

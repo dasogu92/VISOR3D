@@ -736,12 +736,28 @@ function situarCamara(theta,phi,dist){
 function lienzoABlob(){
   return new Promise(res=>S.renderer.domElement.toBlob(res,'image/png'));
 }
-function descargar(blob,nombre){
+/* En iOS el atributo download no funciona con archivos generados: Safari
+   ignora el clic. La vía nativa es el menú de compartir, que incluye
+   Guardar en Fotos. En el resto se descarga como siempre. */
+async function descargar(blob,nombre){
+  try{
+    const file=new File([blob],nombre,{type:blob.type||'application/octet-stream'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file]});
+      return;
+    }
+  }catch(e){
+    if(e && e.name==='AbortError') return;      // el usuario cerró el menú
+  }
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=nombre;
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+  if('download' in a){
+    a.href=url; a.download=nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+  }else{
+    window.open(url,'_blank');                  // último recurso: mantener pulsado para guardar
+  }
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
 function nombreBase(){
   const m=S.actual;
@@ -1218,6 +1234,7 @@ pintarBotonesEnvio();
    Compone frontal y trasera en un solo JPG, con los datos del diseño.
 =============================================================== */
 const FICHA={ancho:2200, alto:1500, vista:880};
+let fichaBlob=null, fichaBlobURL=null;
 
 function envolverTexto(ctx,texto,maxAncho){
   const palabras=String(texto||'').split(/\s+/);
@@ -1328,9 +1345,11 @@ async function generarFicha(){
     ctx.textAlign='left';
     ctx.letterSpacing='0px';
 
-    const url=cv.toDataURL('image/jpeg',0.92);
-    $('fichaImg').src=url;
-    $('visorFicha').dataset.url=url;
+    const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.92));
+    if(fichaBlobURL) URL.revokeObjectURL(fichaBlobURL);
+    fichaBlob=blob;
+    fichaBlobURL=URL.createObjectURL(blob);
+    $('fichaImg').src=fichaBlobURL;
     $('visorFicha').dataset.nombre=
       ((d.code||'ficha')+'-'+(d.name||'')).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'.jpg';
     $('fichaTit').textContent=d.name||'Ficha técnica';
@@ -1345,10 +1364,8 @@ async function generarFicha(){
 $('btnFicha').onclick=generarFicha;
 $('fichaCerrar').onclick=()=>{ $('visorFicha').hidden=true; };
 $('fichaDescargar').onclick=()=>{
-  const a=document.createElement('a');
-  a.href=$('visorFicha').dataset.url||'';
-  a.download=$('visorFicha').dataset.nombre||'ficha.jpg';
-  a.click();
+  if(!fichaBlob) return;
+  descargar(fichaBlob,$('visorFicha').dataset.nombre||'ficha.jpg');
 };
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape') $('visorFicha').hidden=true;
