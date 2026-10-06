@@ -98,6 +98,22 @@
   .comentar .cerrar:hover{color:var(--accent)}
   .comentar .ok{margin:10px 0 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
 
+  .visorFicha{
+    position:fixed;inset:0;background:var(--paper);z-index:45;
+    display:flex;flex-direction:column;
+  }
+  .visorFicha[hidden]{display:none}
+  .fichaTop{
+    display:flex;align-items:center;gap:10px;flex:none;
+    padding:14px var(--pad);border-bottom:1px solid var(--rule);
+  }
+  .fichaTit{flex:1;font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+  .fichaCuerpo{
+    flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+    padding:var(--pad);background:var(--stage);
+  }
+  .fichaCuerpo img{max-width:100%;max-height:100%;object-fit:contain;background:var(--paper)}
+
   .aviso{margin:16vh auto;padding:0 var(--pad);max-width:520px;text-align:center}
   .aviso h2{font-size:15px;letter-spacing:.2em;text-transform:uppercase;margin:0 0 12px}
   .aviso p{color:var(--muted);margin:0}
@@ -115,6 +131,8 @@
     .hint.tactil{display:block;right:auto;left:var(--pad);bottom:10px;font-size:9px}
     .status{bottom:26px;font-size:9px;max-width:90%}
     .acciones{left:var(--pad);top:12px}
+    .fichaTop{flex-wrap:wrap}
+    .fichaTit{flex:1 0 100%}
     .comentar{
       position:static;width:100%;max-width:none;border-left:none;border-right:none;
       border-bottom:none;margin:0;
@@ -135,6 +153,7 @@
     <div class="acciones">
       <button class="ghost" id="btnPng">Descargar PNG</button>
       <button class="ghost" id="btn4">4 vistas</button>
+      <button class="ghost" id="btnFicha">Ver ficha</button>
       <button class="ghost" id="btnComentar">Comentar</button>
     </div>
 
@@ -152,6 +171,15 @@
     <p class="hint tactil">Un dedo: girar · Dos dedos: zoom · Doble toque: vista inicial</p>
     <div class="barra" id="barra"><i id="barraFill"></i></div>
   </div>
+</div>
+
+<div class="visorFicha" id="visorFicha" hidden>
+  <div class="fichaTop">
+    <span class="fichaTit" id="fichaTit">Ficha técnica</span>
+    <button class="ghost" id="fichaDescargar">Descargar JPG</button>
+    <button class="ghost" id="fichaCerrar">Cerrar</button>
+  </div>
+  <div class="fichaCuerpo"><img id="fichaImg" alt="Ficha técnica"></div>
 </div>
 
 <div class="aviso" id="aviso">
@@ -1135,6 +1163,147 @@ $('btnComentar').onclick=()=>{
 };
 $('cerrarComentar').onclick=()=>$('panelComentar').classList.remove('on');
 pintarBotonesEnvio();
+
+/* ===============================================================
+   FICHA TÉCNICA
+   Compone frontal y trasera en un solo JPG, con los datos del diseño.
+=============================================================== */
+const FICHA={ancho:2200, alto:1500, vista:880};
+
+function envolverTexto(ctx,texto,maxAncho){
+  const palabras=String(texto||'').split(/\s+/);
+  const lineas=[]; let actual='';
+  palabras.forEach(p=>{
+    const prueba=actual?actual+' '+p:p;
+    if(ctx.measureText(prueba).width>maxAncho && actual){ lineas.push(actual); actual=p; }
+    else actual=prueba;
+  });
+  if(actual) lineas.push(actual);
+  return lineas;
+}
+
+async function generarFicha(){
+  if(!S.root) return;
+  const d=S.actual||{};
+  const btn=$('btnFicha'); btn.disabled=true;
+  status('Generando ficha…');
+
+  try{
+    const guardaTheta=S.orbit.theta, guardaPhi=S.orbit.phi, guardaDist=S.orbit.dist;
+
+    /* Dos renders cuadrados con la misma distancia e inclinación */
+    const vistas=await conLienzo(FICHA.vista,async()=>{
+      const salida=[];
+      for(const theta of [0, Math.PI]){
+        situarCamara(theta,guardaPhi,guardaDist);
+        S.renderer.render(S.scene,S.camera);
+        const c=document.createElement('canvas');
+        c.width=FICHA.vista; c.height=FICHA.vista;
+        c.getContext('2d').drawImage(S.renderer.domElement,0,0);
+        salida.push(c);
+      }
+      return salida;
+    });
+
+    S.orbit.theta=guardaTheta; S.orbit.phi=guardaPhi; S.orbit.dist=guardaDist;
+
+    /* Composición */
+    const cv=document.createElement('canvas');
+    cv.width=FICHA.ancho; cv.height=FICHA.alto;
+    const ctx=cv.getContext('2d');
+    const F='"Helvetica Neue",Helvetica,Arial,sans-serif';
+
+    ctx.fillStyle='#FFFFFF';
+    ctx.fillRect(0,0,cv.width,cv.height);
+
+    /* Cabecera */
+    ctx.fillStyle='#000000';
+    ctx.textBaseline='top';
+    ctx.font='700 30px '+F;
+    ctx.letterSpacing='14px';
+    ctx.fillText('RUMM',90,80);
+    ctx.letterSpacing='0px';
+    ctx.font='400 18px '+F;
+    ctx.fillStyle='#8A8A85';
+    ctx.fillText('custom',245,92);
+
+    if(ficha&&ficha.cliente){
+      ctx.font='400 20px '+F;
+      ctx.letterSpacing='3px';
+      ctx.textAlign='right';
+      ctx.fillText(String(ficha.cliente).toUpperCase(),cv.width-90,90);
+      ctx.textAlign='left';
+      ctx.letterSpacing='0px';
+    }
+
+    ctx.strokeStyle='#E2E2DE'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(90,150); ctx.lineTo(cv.width-90,150); ctx.stroke();
+
+    /* Título */
+    ctx.fillStyle='#000000';
+    ctx.font='700 46px '+F;
+    ctx.letterSpacing='4px';
+    const lineas=envolverTexto(ctx,String(d.name||'Diseño').toUpperCase(),cv.width-180).slice(0,2);
+    lineas.forEach((l,i)=>ctx.fillText(l,90,195+i*58));
+    ctx.letterSpacing='0px';
+
+    /* Las dos vistas */
+    const arriba=360;
+    const hueco=(cv.width-FICHA.vista*2)/3;
+    const etiquetas=['FRONTAL','TRASERA'];
+    vistas.forEach((c,i)=>{
+      const x=hueco+(FICHA.vista+hueco)*i;
+      ctx.fillStyle='#EDEDEA';
+      ctx.fillRect(x,arriba,FICHA.vista,FICHA.vista);
+      ctx.drawImage(c,x,arriba);
+      ctx.fillStyle='#8A8A85';
+      ctx.font='400 20px '+F;
+      ctx.letterSpacing='5px';
+      ctx.textAlign='center';
+      ctx.fillText(etiquetas[i],x+FICHA.vista/2,arriba+FICHA.vista+24);
+      ctx.textAlign='left';
+      ctx.letterSpacing='0px';
+    });
+
+    /* Pie */
+    const pie=cv.height-70;
+    ctx.strokeStyle='#E2E2DE';
+    ctx.beginPath(); ctx.moveTo(90,pie-26); ctx.lineTo(cv.width-90,pie-26); ctx.stroke();
+    ctx.fillStyle='#8A8A85';
+    ctx.font='400 20px '+F;
+    ctx.letterSpacing='3px';
+    ctx.fillText('MODELO '+(d.code||'—'),90,pie);
+    ctx.textAlign='right';
+    ctx.fillText(new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'long',year:'numeric'}).toUpperCase(),
+                 cv.width-90,pie);
+    ctx.textAlign='left';
+    ctx.letterSpacing='0px';
+
+    const url=cv.toDataURL('image/jpeg',0.92);
+    $('fichaImg').src=url;
+    $('visorFicha').dataset.url=url;
+    $('visorFicha').dataset.nombre=
+      ((d.code||'ficha')+'-'+(d.name||'')).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'.jpg';
+    $('fichaTit').textContent=d.name||'Ficha técnica';
+    $('visorFicha').hidden=false;
+    status(d.name||'');
+  }catch(e){
+    console.error(e);
+    status('No se ha podido generar la ficha',true);
+  }finally{ btn.disabled=false; }
+}
+
+$('btnFicha').onclick=generarFicha;
+$('fichaCerrar').onclick=()=>{ $('visorFicha').hidden=true; };
+$('fichaDescargar').onclick=()=>{
+  const a=document.createElement('a');
+  a.href=$('visorFicha').dataset.url||'';
+  a.download=$('visorFicha').dataset.nombre||'ficha.jpg';
+  a.click();
+};
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') $('visorFicha').hidden=true;
+});
 
 $('btnPng').onclick=exportarCaptura;
 $('btn4').onclick=exportar4Vistas;
