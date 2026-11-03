@@ -259,9 +259,9 @@
   .caja.ancha{width:min(1100px,100%);height:86vh}
   .revCuerpo{flex:1;min-height:0;display:flex}
   .revLista{width:300px;flex:none;border-right:1px solid var(--rule);overflow-y:auto;padding:8px 0}
-  .revFiltros{display:flex;gap:6px;padding:8px var(--pad) 10px;border-bottom:1px solid var(--rule)}
+  .revFiltros{display:flex;flex-wrap:wrap;gap:4px;padding:8px 16px 10px;border-bottom:1px solid var(--rule)}
   .revFiltros button{
-    background:none;border:none;cursor:pointer;padding:4px 7px;
+    background:none;border:none;cursor:pointer;padding:4px 6px;
     font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
   }
   .revFiltros button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
@@ -287,6 +287,28 @@
   }
   .revForm textarea:focus{outline:none;border-color:var(--accent)}
   .revNada{margin:auto;color:var(--muted);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:var(--pad);text-align:center}
+
+  /* ---------- pedidos ---------- */
+  .pedEstado{font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:2px 7px;flex:none}
+  .pedEstado.nuevo{background:var(--accent);color:#fff}
+  .pedEstado.en_diseno{background:#FFF2CC;color:#7A5C00}
+  .pedEstado.enviado{background:var(--stage);color:var(--muted)}
+  .pedEstado.aprobado{background:#DDF2E4;color:#1F6B3D}
+  .pedEstado.cancelado{background:none;color:var(--muted);text-decoration:line-through}
+  .pedFicha{flex:1;min-height:0;overflow-y:auto;padding:16px var(--pad) 24px}
+  .pedFicha dl{display:grid;grid-template-columns:120px 1fr;gap:8px 16px;margin:0 0 18px}
+  .pedFicha dt{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+  .pedFicha dd{margin:0;font-size:12px;white-space:pre-wrap;word-wrap:break-word}
+  .pedFicha dd a{color:inherit}
+  .pedPrendas{display:flex;flex-direction:column;gap:6px}
+  .pedPrendas span{display:flex;align-items:center;gap:8px}
+  .pedPrendas button{background:none;border:1px solid var(--ink);padding:2px 8px;cursor:pointer;
+    font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+  .pedPrendas button:hover{background:var(--ink);color:var(--paper)}
+  .pedBotones{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px var(--pad) 14px;border-top:1px solid var(--rule)}
+  .pedBotones select{font:inherit;font-size:11px;padding:6px;border:1px solid var(--ink);background:var(--paper)}
+  .pedBotones .solid{background:var(--ink);color:var(--paper)}
+  .pedBotones .solid:hover{background:var(--accent);border-color:var(--accent)}
   .campoLogin{
     width:100%;margin-top:14px;border:none;border-bottom:1px solid var(--ink);background:none;
     padding:8px 0;font:inherit;font-size:14px;text-align:center;
@@ -572,6 +594,7 @@
   <div class="caja ancha">
     <div class="cabecera">
       <h2>Revisiones</h2>
+      <button class="ghost" id="pedEnlace" title="Copia el enlace del formulario para tu web, Instagram o WhatsApp">Enlace de pedidos</button>
       <button class="ghost" id="revRecargar">Actualizar</button>
       <button class="ghost" id="revSalir">Cerrar sesión</button>
       <button class="cerrar" id="cerrarRev" aria-label="Cerrar">&times;</button>
@@ -579,6 +602,7 @@
     <div class="revCuerpo">
       <div class="revLista">
         <div class="revFiltros" id="revFiltros">
+          <button data-f="pedidos" aria-pressed="false">Pedidos <span class="cuenta" id="pedCuenta"></span></button>
           <button data-f="pendientes" aria-pressed="true">Pendientes</button>
           <button data-f="todos" aria-pressed="false">Todos</button>
           <button data-f="aprobados" aria-pressed="false">Aprobados</button>
@@ -586,6 +610,25 @@
         <div id="revLista"></div>
       </div>
       <p class="revNada" id="revNada">Elige un diseño</p>
+      <div class="revDetalle" id="pedDetalle" hidden>
+        <div class="revCabDet">
+          <h3 id="pedTitulo"></h3>
+          <span class="pedEstado" id="pedSello"></span>
+          <a id="pedVerCliente" target="_blank" rel="noopener">Ver como cliente</a>
+        </div>
+        <div class="pedFicha" id="pedFicha"></div>
+        <div class="pedBotones">
+          <select id="pedCambiarEstado" aria-label="Estado del pedido">
+            <option value="nuevo">Nuevo</option>
+            <option value="en_diseno">En diseño</option>
+            <option value="enviado">Enviado</option>
+            <option value="aprobado">Aprobado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+          <button class="ghost" id="pedCopiar">Copiar enlace del cliente</button>
+          <button class="ghost solid" id="pedDisenar">Diseñar para este pedido</button>
+        </div>
+      </div>
       <div class="revDetalle" id="revDetalle" hidden>
         <div class="revCabDet">
           <h3 id="revTitulo"></h3>
@@ -2214,6 +2257,12 @@ function pedirNombreCliente(){
       res(v);
     };
     inp.oninput=revisar;
+    /* Viene de «Diseñar para este pedido»: su cliente ya propuesto */
+    if(typeof pedSugerido==='string'&&pedSugerido){
+      inp.value=pedSugerido; pedSugerido='';
+      revisar();
+      setTimeout(()=>inp.select(),40);
+    }
     inp.onkeydown=e=>{
       if(e.key==='Enter'){ e.preventDefault(); if(inp.value.trim()) cerrar(inp.value.trim()); }
       if(e.key==='Escape') cerrar(null);
@@ -2379,7 +2428,8 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('modal').hidden=
    Datos en Supabase (revisiones.js). El cliente comenta desde ver.html;
    aquí se aceptan o rechazan sus peticiones y se le contesta.
 =============================================================== */
-const R={mensajes:[], nombres:{}, filtro:'pendientes', soloToken:null, sel:null, elegidos:[]};
+const R={mensajes:[], nombres:{}, filtro:'pendientes', soloToken:null, sel:null, elegidos:[],
+         pedidos:[], selPed:null};
 
 /* Cliente de Supabase con sesión iniciada; null si se cancela el acceso */
 async function revSesion(){
@@ -2461,11 +2511,15 @@ async function abrirRevisiones(opciones){
 async function revCargar(){
   const sb=await Rev.cliente();
   $('revLista').innerHTML='<p class="vacio">Cargando…</p>';
-  const [m,cl,eq]=await Promise.all([
+  const [m,cl,eq,pe]=await Promise.all([
     sb.from('mensajes').select('*').order('creado',{ascending:true}).order('id',{ascending:true}).limit(10000),
     sb.from('clientes').select('token,nombre'),
-    sb.rpc('es_estudio')
+    sb.rpc('es_estudio'),
+    sb.from('pedidos').select('*').order('creado',{ascending:false}).limit(2000)
   ]);
+  /* Sin supabase/pedidos.sql ejecutado la tabla no existe: el resto sigue igual */
+  R.pedidos=pe.error?[]:(pe.data||[]);
+  if(pe.error) console.warn('[pedidos]',pe.error.message);
   const fallo=m.error||cl.error;
   if(fallo){
     $('revLista').innerHTML='<p class="vacio">'+Rev.esc(fallo.message)+'</p>';
@@ -2515,6 +2569,12 @@ function revDisenos(){
 }
 
 function revPintarLista(){
+  if(R.filtro==='pedidos'){
+    document.querySelectorAll('#revFiltros button').forEach(b=>
+      b.setAttribute('aria-pressed',String(b.dataset.f===R.filtro)));
+    pedPintarLista();
+    return;
+  }
   const cont=$('revLista');
   let lista=revDisenos();
   if(R.soloToken) lista=lista.filter(e=>e.token===R.soloToken);
@@ -2557,6 +2617,9 @@ function revPintarLista(){
 }
 
 function revPintarDetalle(){
+  if(R.filtro==='pedidos'){ $('revDetalle').hidden=true; pedPintarDetalle(); return; }
+  $('pedDetalle').hidden=true;
+  $('revNada').textContent='Elige un diseño';
   const e=R.sel&&revDisenos().find(x=>x.token===R.sel.token&&x.id===R.sel.id);
   $('revDetalle').hidden=!e;
   $('revNada').hidden=!!e;
@@ -2645,8 +2708,162 @@ async function revResponder(){
 
 function revCuenta(){
   const n=R.mensajes.filter(m=>m.tipo==='comentario'&&m.estado==='pendiente').length;
-  $('revCuenta').textContent=n||'';
+  const p=R.pedidos.filter(x=>x.estado==='nuevo').length;
+  $('revCuenta').textContent=(n+p)||'';
+  $('pedCuenta').textContent=p||'';
 }
+
+/* ---------------- pedidos de pedido.html ---------------- */
+let pedSugerido='';           // cliente propuesto al subir a enlace privado
+const PED_ESTADOS={nuevo:'Nuevo',en_diseno:'En diseño',enviado:'Enviado',aprobado:'Aprobado',cancelado:'Cancelado'};
+
+function pedPintarLista(){
+  const cont=$('revLista');
+  cont.innerHTML='';
+  if(!R.pedidos.length){
+    cont.innerHTML='<p class="vacio">Sin pedidos todavía. Pulsa «Enlace de pedidos» y compártelo.</p>';
+    return;
+  }
+  R.pedidos.forEach(p=>{
+    const b=document.createElement('button');
+    b.className='revItem';
+    b.setAttribute('aria-current',String(R.selPed===p.id));
+    b.innerHTML='<span class="t"></span><span class="pedEstado '+p.estado+'"></span>';
+    b.querySelector('.t').textContent=p.numero+' · '+(p.empresa||p.nombre);
+    b.querySelector('.pedEstado').textContent=PED_ESTADOS[p.estado]||p.estado;
+    b.onclick=()=>{ R.selPed=p.id; pedPintarLista(); pedPintarDetalle(); };
+    cont.appendChild(b);
+  });
+}
+
+function pedPintarDetalle(){
+  const p=R.pedidos.find(x=>x.id===R.selPed);
+  $('pedDetalle').hidden=!p;
+  $('revNada').hidden=!!p;
+  $('revNada').textContent=p?'':'Elige un pedido';
+  if(!p) return;
+  $('pedTitulo').textContent='Pedido '+p.numero+' · '+(p.empresa||p.nombre);
+  $('pedSello').className='pedEstado '+p.estado;
+  $('pedSello').textContent=PED_ESTADOS[p.estado]||p.estado;
+  $('pedVerCliente').href=enlaceDe(p.token);
+  $('pedCambiarEstado').value=p.estado;
+
+  const f=$('pedFicha');
+  f.innerHTML='';
+  const dl=document.createElement('dl');
+  const fila=(t,valor)=>{
+    if(!valor) return;
+    const dt=document.createElement('dt'); dt.textContent=t;
+    const dd=document.createElement('dd');
+    if(typeof valor==='string') dd.textContent=valor; else dd.appendChild(valor);
+    dl.appendChild(dt); dl.appendChild(dd);
+  };
+  const enlace=(txt,href)=>{
+    const a=document.createElement('a');
+    a.textContent=txt; a.href=href; a.target='_blank'; a.rel='noopener';
+    return a;
+  };
+  fila('Recibido',Rev.fecha(p.creado));
+  fila('Nombre',p.nombre);
+  fila('Club / empresa',p.empresa);
+  fila('Email',enlace(p.email,'mailto:'+p.email+'?subject='+encodeURIComponent('Pedido '+p.numero+' · RUMM')));
+  if(p.telefono){
+    const tel=p.telefono.replace(/[^\d+]/g,'');
+    const span=document.createElement('span');
+    span.appendChild(enlace(p.telefono,'tel:'+tel));
+    span.appendChild(document.createTextNode(' · '));
+    span.appendChild(enlace('WhatsApp','https://wa.me/'+tel.replace(/^\+/,'').replace(/^(?=[67]\d{8}$)/,'34')));
+    fila('Teléfono',span);
+  }
+  fila('Disciplina',p.disciplina);
+  if(p.prendas&&p.prendas.length){
+    const div=document.createElement('div');
+    div.className='pedPrendas';
+    p.prendas.forEach(x=>{
+      const s=document.createElement('span');
+      s.textContent=(x.nombre||x.codigo)+(x.cantidad?' × '+x.cantidad:'');
+      const m=S.models.find(y=>y.code===x.codigo);
+      if(m){
+        const b=document.createElement('button');
+        b.textContent='Abrir';
+        b.onclick=()=>{ pedPrepararCliente(p); $('modalRev').hidden=true; openModel(m); };
+        s.appendChild(b);
+      }
+      div.appendChild(s);
+    });
+    fila('Prendas',div);
+  }
+  fila('Colores',p.colores);
+  fila('Idea',p.descripcion);
+  f.appendChild(dl);
+
+  if(p.adjuntos&&p.adjuntos.length){
+    const cont=document.createElement('div');
+    Rev.pintarHilo(cont,[{autor:'cliente',tipo:'pedido',nombre:'Referencias del cliente',
+      version:1,texto:'',adjuntos:p.adjuntos,creado:p.creado}],{vista:'estudio'});
+    cont.querySelectorAll('.revVer').forEach(x=>x.remove());
+    f.appendChild(cont);
+  }
+}
+
+/* Deja el cliente listo en este navegador: al subir el diseño a enlace
+   privado con su nombre, va a su enlace, el que ya tiene el cliente. */
+function pedPrepararCliente(p){
+  let c=clientes.find(x=>x.token===p.token);
+  if(!c){
+    const nombre=p.empresa||p.nombre;
+    let final=nombre, i=2;
+    while(clientes.some(x=>clave(x.nombre)===clave(final))) final=nombre+' ('+(i++)+')';
+    c={token:p.token,nombre:final,creado:p.creado,publicado:false,disenos:[],pedido:p.numero};
+    clientes.push(c);
+    clientesGuardar();
+  }
+  pedSugerido=c.nombre;
+  if(p.estado==='nuevo') pedEstado(p,'en_diseno');
+  return c;
+}
+
+async function pedEstado(p,estado){
+  const sb=await Rev.cliente();
+  const {error}=await sb.from('pedidos').update({estado}).eq('id',p.id);
+  if(error){ toast('No se ha podido cambiar el estado: '+error.message,6000); return; }
+  p.estado=estado;
+  if(R.filtro==='pedidos'){ pedPintarLista(); pedPintarDetalle(); }
+  revCuenta();
+}
+
+/* Al publicar a un cliente que vino de un pedido, el pedido pasa a enviado */
+async function pedEnviado(c){
+  try{
+    const sb=await Rev.cliente();
+    await sb.from('pedidos').update({estado:'enviado'})
+      .eq('token',c.token).in('estado',['nuevo','en_diseno']);
+  }catch(e){ console.warn('[pedidos]',e); }
+}
+
+$('pedCambiarEstado').onchange=()=>{
+  const p=R.pedidos.find(x=>x.id===R.selPed);
+  if(p) pedEstado(p,$('pedCambiarEstado').value);
+};
+$('pedCopiar').onclick=async()=>{
+  const p=R.pedidos.find(x=>x.id===R.selPed);
+  if(!p) return;
+  await copiar(enlaceDe(p.token));
+  toast('Enlace de '+(p.empresa||p.nombre)+' copiado');
+};
+$('pedDisenar').onclick=()=>{
+  const p=R.pedidos.find(x=>x.id===R.selPed);
+  if(!p) return;
+  const c=pedPrepararCliente(p);
+  $('modalRev').hidden=true;
+  const prenda=(p.prendas||[]).map(x=>S.models.find(y=>y.code===x.codigo)).find(Boolean);
+  if(prenda) openModel(prenda);
+  toast('Sube el diseño y pulsa «Subir a enlace privado» con el cliente «'+c.nombre+'»',9000);
+};
+$('pedEnlace').onclick=async()=>{
+  await copiar(new URL('pedido.html',location.href).href);
+  toast('Enlace del formulario de pedidos copiado');
+};
 
 /* Al arrancar: contador de pendientes si ya hay sesión, sin pedirla */
 async function revArrancar(){
@@ -2654,12 +2871,16 @@ async function revArrancar(){
   $('btnRev').hidden=false;
   R.elegidos=Rev.selector($('revArchivos'),$('revElegidos'));
   if(location.hash==='#revisiones'){ abrirRevisiones(); return; }
+  if(location.hash==='#pedidos'){ R.filtro='pedidos'; abrirRevisiones(); return; }
   try{
     const sb=await Rev.cliente();
     const {data}=await sb.auth.getSession();
     if(!data||!data.session) return;
-    const {count}=await sb.from('mensajes').select('id',{count:'exact',head:true}).eq('estado','pendiente');
-    $('revCuenta').textContent=count||'';
+    const [m,p]=await Promise.all([
+      sb.from('mensajes').select('id',{count:'exact',head:true}).eq('estado','pendiente'),
+      sb.from('pedidos').select('id',{count:'exact',head:true}).eq('estado','nuevo')
+    ]);
+    $('revCuenta').textContent=((m.count||0)+(p.error?0:(p.count||0)))||'';
   }catch(e){ console.warn('[revisiones]',e); }
 }
 
@@ -2675,7 +2896,7 @@ $('revSalir').onclick=async()=>{
   toast('Sesión cerrada');
 };
 document.querySelectorAll('#revFiltros button').forEach(b=>{
-  b.onclick=()=>{ R.filtro=b.dataset.f; revPintarLista(); };
+  b.onclick=()=>{ R.filtro=b.dataset.f; revPintarLista(); revPintarDetalle(); };
 });
 $('revAdjuntar').onclick=()=>$('revArchivos').click();
 $('revEnviar').onclick=revResponder;
@@ -2928,7 +3149,7 @@ async function publicarCliente(c,opciones){
     cargaPaso('Guardando…',100);
     c.publicado=true;
     await clientesGuardar();
-    if(REV_ON) await anunciarVersiones(c);
+    if(REV_ON){ await anunciarVersiones(c); await pedEnviado(c); }
     const enlace=enlaceDe(c.token);
     console.log('Enlace de '+c.nombre+':',enlace);
     await copiar(enlace);

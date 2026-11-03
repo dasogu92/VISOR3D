@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nuevo pedido · RUMM custom</title>
+<!--
+  PEDIDO.HTML — formulario público de pedido nuevo.
+  Crea el pedido en Supabase (número AAAA-NNNN) y el enlace privado del
+  cliente, ver.html?c=TOKEN, donde verá el diseño cuando esté listo.
+  Necesita revisiones.js configurado y supabase/pedidos.sql ejecutado.
+-->
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#000000; --stage:#EDEDEA;
+    --rule:#E2E2DE; --accent:#F2513B; --muted:#8A8A85; --pad:24px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  }
+  button,input,textarea{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  [hidden]{display:none!important}
+
+  .masthead{
+    display:flex;align-items:center;justify-content:center;
+    min-height:72px;padding:14px var(--pad);border-bottom:1px solid var(--rule);
+  }
+  .wordmark{
+    font-size:clamp(17px,4.4vw,26px);font-weight:700;
+    letter-spacing:.42em;text-indent:.42em;text-transform:uppercase;white-space:nowrap;
+  }
+  .wordmark sup{font-size:9px;letter-spacing:.18em;vertical-align:super;font-weight:400;text-transform:lowercase;margin-left:-.35em}
+
+  main{max-width:760px;margin:0 auto;padding:40px var(--pad) 80px}
+  h1{margin:0 0 6px;font-size:22px;letter-spacing:.24em;text-transform:uppercase}
+  .intro{margin:0 0 36px;color:var(--muted);max-width:520px}
+
+  section{border-top:1px solid var(--ink);padding:18px 0 30px}
+  .secTit{display:flex;gap:14px;align-items:baseline;margin:0 0 16px;
+    font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+  .secTit span{color:var(--accent)}
+  .secTit em{font-style:normal;color:var(--muted);letter-spacing:.08em;text-transform:none;font-size:11px}
+
+  .campos{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+  label.campo{display:flex;flex-direction:column;gap:5px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  label.campo b{color:var(--accent);font-weight:400}
+  input[type=text],input[type=email],input[type=tel],textarea{
+    width:100%;border:none;border-bottom:1px solid var(--ink);background:none;
+    padding:8px 0;font-size:14px;letter-spacing:0;text-transform:none;color:var(--ink);border-radius:0;
+  }
+  textarea{border:1px solid var(--rule);padding:10px;min-height:130px;resize:vertical}
+  input:focus,textarea:focus{outline:none;border-color:var(--accent)}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:none;border:1px solid var(--ink);padding:8px 14px;cursor:pointer;
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+  .chip[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  .chip:hover{border-color:var(--accent)}
+
+  .prendas{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+  .prenda{position:relative;background:none;border:1px solid var(--rule);padding:0;cursor:pointer;text-align:left;display:flex;flex-direction:column}
+  .prenda .foto{aspect-ratio:4/5;background:var(--stage);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .prenda .foto img{width:100%;height:100%;object-fit:contain}
+  .prenda .foto i{font-style:normal;font-size:20px;letter-spacing:.2em;color:var(--muted)}
+  .prenda .nom{padding:8px 10px 10px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;line-height:1.35}
+  .prenda[aria-pressed="true"]{border-color:var(--accent);outline:1px solid var(--accent)}
+  .prenda[aria-pressed="true"] .nom{color:var(--accent)}
+  .prenda .marca{position:absolute;right:8px;top:8px;width:20px;height:20px;border:1px solid var(--ink);background:var(--paper);
+    display:flex;align-items:center;justify-content:center;font-size:12px}
+  .prenda[aria-pressed="true"] .marca{background:var(--accent);border-color:var(--accent);color:#fff}
+  .cant{display:flex;align-items:center;gap:8px;padding:0 10px 10px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .cant input{width:70px;border:1px solid var(--rule);padding:4px 6px;font-size:13px}
+  .vacio{color:var(--muted)}
+
+  .colores{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .color{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;padding:0;width:64px}
+  .color .muestra{width:40px;height:40px;border-radius:50%;border:1px solid var(--rule);position:relative}
+  .color[aria-pressed="true"] .muestra{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--ink)}
+  .color span{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+  .color[aria-pressed="true"] span{color:var(--ink)}
+
+  .zona{border:1px dashed var(--muted);padding:18px;text-align:center;color:var(--muted);margin-top:12px;cursor:pointer}
+  .zona.encima{border-color:var(--accent);color:var(--accent)}
+  .zona b{color:var(--ink);font-size:10px;letter-spacing:.14em;text-transform:uppercase;display:block;margin-bottom:4px}
+
+  .acepto{display:flex;gap:10px;align-items:flex-start;margin:6px 0 24px;color:var(--muted);font-size:12px}
+  .acepto input{margin-top:3px;accent-color:var(--accent)}
+  .trampa{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+  .enviar{background:var(--ink);color:var(--paper);border:1px solid var(--ink);padding:16px 30px;cursor:pointer;
+    font-size:11px;letter-spacing:.2em;text-transform:uppercase}
+  .enviar:hover{background:var(--accent);border-color:var(--accent)}
+  .enviar[disabled]{opacity:.5;cursor:default}
+  .error{color:var(--accent);margin:14px 0 0}
+
+  .hecho{text-align:center;padding:60px 0}
+  .hecho .num{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+  .hecho h1{margin-bottom:18px}
+  .hecho p{max-width:480px;margin:0 auto 14px;color:var(--muted)}
+  .enlace{display:flex;max-width:520px;margin:26px auto 10px;border:1px solid var(--ink)}
+  .enlace input{flex:1;border:none;padding:12px;font-size:12px;min-width:0}
+  .enlace button{border:none;border-left:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:0 18px;cursor:pointer;
+    font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+  .hecho a{color:var(--ink);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+
+  @media (max-width:600px){
+    main{padding-top:28px}
+    .campos{grid-template-columns:1fr}
+    .prendas{grid-template-columns:repeat(2,1fr)}
+    .enviar{width:100%}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wordmark">RUMM<sup>custom</sup></div>
+</header>
+
+<main>
+  <form id="form" novalidate>
+    <h1>Nuevo pedido</h1>
+    <p class="intro">Cuéntanos qué necesitas. Con esto preparamos el diseño y te lo enseñamos en 3D en tu enlace privado, donde podrás pedir cambios o aprobarlo.</p>
+
+    <section>
+      <h2 class="secTit"><span>01</span>Tus datos</h2>
+      <div class="campos">
+        <label class="campo">Nombre <b>*</b>
+          <input type="text" id="nombre" autocomplete="name" maxlength="80" required></label>
+        <label class="campo">Email <b>*</b>
+          <input type="email" id="email" autocomplete="email" maxlength="120" required></label>
+        <label class="campo">Teléfono
+          <input type="tel" id="telefono" autocomplete="tel" maxlength="40"></label>
+        <label class="campo">Club o empresa
+          <input type="text" id="empresa" autocomplete="organization" maxlength="120"></label>
+      </div>
+      <div class="trampa" aria-hidden="true">
+        <label>Web <input type="text" id="web" tabindex="-1" autocomplete="off"></label>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="secTit"><span>02</span>¿Qué corres? <em>Elige todas las que encajen</em></h2>
+      <div class="chips" id="disciplinas"></div>
+    </section>
+
+    <section>
+      <h2 class="secTit"><span>03</span>Prendas <em>Marca las que quieres y cuántas, aproximadamente</em></h2>
+      <div class="prendas" id="prendas"><p class="vacio">Cargando catálogo…</p></div>
+    </section>
+
+    <section>
+      <h2 class="secTit"><span>04</span>Colores que te gustan</h2>
+      <div class="colores" id="colores"></div>
+      <label class="campo">Otros colores, Pantone, colores del club…
+        <input type="text" id="coloresTxt" maxlength="300"></label>
+    </section>
+
+    <section>
+      <h2 class="secTit"><span>05</span>Tu idea y referencias</h2>
+      <textarea id="descripcion" maxlength="5000"
+        placeholder="Estilo que buscas, diseños que te gustan, dónde van los logos, textos, patrocinadores, enlaces a referencias…"></textarea>
+      <div class="zona" id="zona">
+        <b>Adjuntar logos y referencias</b>
+        Imágenes, PDF, AI… hasta 10 archivos de 25 MB. También puedes arrastrarlos aquí.
+      </div>
+      <input type="file" id="archivos" multiple hidden>
+      <div class="revElegidos" id="elegidos" hidden style="margin-top:10px"></div>
+    </section>
+
+    <label class="acepto">
+      <input type="checkbox" id="acepto">
+      <span>Acepto que RUMM use estos datos para preparar el diseño y contactar conmigo sobre este pedido.</span>
+    </label>
+
+    <button class="enviar" id="enviar" type="submit">Enviar pedido</button>
+    <p class="error" id="error" hidden></p>
+  </form>
+
+  <div class="hecho" id="hecho" hidden>
+    <p class="num" id="hechoNum"></p>
+    <h1>Pedido recibido</h1>
+    <p>Gracias. Nos ponemos con tu diseño y te avisamos cuando esté listo.</p>
+    <p><b style="color:var(--ink)">Guarda este enlace</b>: es tu espacio privado. Ahí verás el diseño en 3D y podrás pedir cambios o aprobarlo.</p>
+    <div class="enlace">
+      <input id="hechoEnlace" readonly>
+      <button type="button" id="copiar">Copiar</button>
+    </div>
+    <a id="abrir" href="#">Abrir mi enlace</a>
+  </div>
+</main>
+
+<script src="revisiones.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+
+const DISCIPLINAS=['Asfalto','Trail','Montaña / ultra','Triatlón','Pista','Ciclismo','Otro'];
+const COLORES=[
+  ['Negro','#111'],['Blanco','#fff'],['Gris','#9A9A96'],['Rojo','#D62828'],
+  ['Naranja','#F2700F'],['Amarillo','#F5C800'],['Flúor','#D7F400'],['Verde','#2E8B57'],
+  ['Azul','#1F6FD1'],['Marino','#14213D'],['Morado','#6A3FA0'],['Rosa','#F27BB0']
+];
+const MINIATURAS=['captura1.png','captura1.jpg','captura.png','thumb.jpg'];
+
+/* ---------- opciones con botones ---------- */
+function pulsable(b){
+  b.type='button';
+  b.setAttribute('aria-pressed','false');
+  b.addEventListener('click',()=>b.setAttribute('aria-pressed',
+    String(b.getAttribute('aria-pressed')!=='true')));
+  return b;
+}
+DISCIPLINAS.forEach(d=>{
+  const b=pulsable(document.createElement('button'));
+  b.className='chip'; b.textContent=d; b.dataset.v=d;
+  $('disciplinas').appendChild(b);
+});
+COLORES.forEach(([n,hex])=>{
+  const b=pulsable(document.createElement('button'));
+  b.className='color'; b.dataset.v=n;
+  b.innerHTML='<i class="muestra"></i><span></span>';
+  b.querySelector('.muestra').style.background=hex;
+  b.querySelector('span').textContent=n;
+  $('colores').appendChild(b);
+});
+const elegidosDe=id=>[...document.querySelectorAll('#'+id+' [aria-pressed="true"]')].map(b=>b.dataset.v);
+
+/* ---------- catálogo ---------- */
+async function cargarCatalogo(){
+  const cont=$('prendas');
+  let modelos=[];
+  try{
+    const r=await fetch('catalogo.json',{cache:'no-cache'});
+    modelos=(await r.json()).modelos||[];
+  }catch(e){}
+  cont.innerHTML='';
+  if(!modelos.length){
+    cont.innerHTML='<p class="vacio">No se ha podido cargar el catálogo. Cuéntanos qué prendas quieres en el apartado 05.</p>';
+    return;
+  }
+  modelos.forEach(m=>{
+    const b=pulsable(document.createElement('button'));
+    b.className='prenda';
+    b._m=m;
+    b.innerHTML='<span class="marca">✓</span><div class="foto"><i></i></div><div class="nom"></div>';
+    b.querySelector('.nom').textContent=m.nombre||m.codigo;
+    b.querySelector('.foto i').textContent=m.codigo;
+    miniatura(b.querySelector('.foto'),m);
+
+    const envoltorio=document.createElement('div');
+    envoltorio.style.cssText='display:flex;flex-direction:column;border:none';
+    const cant=document.createElement('label');
+    cant.className='cant'; cant.hidden=true;
+    cant.innerHTML='Unidades <input type="number" min="1" max="99999" inputmode="numeric">';
+    b.addEventListener('click',()=>{
+      cant.hidden=b.getAttribute('aria-pressed')!=='true';
+      if(!cant.hidden) cant.querySelector('input').focus();
+    });
+    b._cant=cant.querySelector('input');
+    envoltorio.appendChild(b);
+    envoltorio.appendChild(cant);
+    cont.appendChild(envoltorio);
+  });
+}
+function miniatura(foto,m){
+  const carpeta='models/'+(m.carpeta||m.codigo)+'/';
+  let i=0;
+  const probar=()=>{
+    if(i>=MINIATURAS.length) return;
+    const img=new Image();
+    img.alt='';
+    img.onload=()=>{ foto.innerHTML=''; foto.appendChild(img); };
+    img.onerror=()=>{ i++; probar(); };
+    img.src=carpeta+MINIATURAS[i];
+  };
+  probar();
+}
+function prendasElegidas(){
+  return [...document.querySelectorAll('.prenda[aria-pressed="true"]')].map(b=>{
+    const n=parseInt(b._cant.value,10);
+    return {codigo:b._m.codigo, nombre:b._m.nombre||b._m.codigo, cantidad:n>0?n:null};
+  });
+}
+
+/* ---------- adjuntos ---------- */
+let archivos=[];
+if(typeof Rev!=='undefined'){
+  Rev.ponerCss();
+  archivos=Rev.selector($('archivos'),$('elegidos'));
+}
+$('zona').onclick=()=>$('archivos').click();
+['dragenter','dragover'].forEach(t=>$('zona').addEventListener(t,e=>{
+  e.preventDefault(); $('zona').classList.add('encima');
+}));
+['dragleave','drop'].forEach(t=>$('zona').addEventListener(t,()=>$('zona').classList.remove('encima')));
+$('zona').addEventListener('drop',e=>{
+  e.preventDefault();
+  const fs=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]);
+  if(fs.length&&archivos.anadir) archivos.anadir(fs);
+});
+$('descripcion').addEventListener('paste',e=>{
+  const fs=Array.from((e.clipboardData&&e.clipboardData.files)||[]);
+  if(fs.length&&archivos.anadir){ e.preventDefault(); archivos.anadir(fs); }
+});
+
+/* ---------- enviar ---------- */
+function error(txt,campo){
+  $('error').textContent=txt; $('error').hidden=false;
+  if(campo){ campo.focus(); campo.scrollIntoView({block:'center',behavior:'smooth'}); }
+}
+
+$('form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  $('error').hidden=true;
+  if(typeof Rev==='undefined'||!Rev.activo()){ error('Los pedidos no están disponibles ahora mismo. Escríbenos directamente.'); return; }
+  if($('web').value) return;                         // bots
+
+  const nombre=$('nombre').value.trim(), email=$('email').value.trim();
+  if(!nombre) return error('Escribe tu nombre.',$('nombre'));
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return error('Revisa el email: lo necesitamos para enviarte el diseño.',$('email'));
+  if(!$('acepto').checked) return error('Marca la casilla de aceptación para poder enviar el pedido.',$('acepto'));
+  try{ Rev.revisarArchivos(archivos); }catch(err){ return error(err.message,$('zona')); }
+
+  const colores=elegidosDe('colores');
+  const coloresTxt=$('coloresTxt').value.trim();
+  const b=$('enviar');
+  b.disabled=true; b.textContent='Enviando…';
+  try{
+    const sb=await Rev.cliente();
+    const {data,error:err}=await sb.rpc('nuevo_pedido',{
+      p_nombre:nombre, p_email:email,
+      p_telefono:$('telefono').value.trim(), p_empresa:$('empresa').value.trim(),
+      p_disciplina:elegidosDe('disciplinas').join(', '),
+      p_colores:colores.join(', ')+(colores.length&&coloresTxt?' · ':'')+coloresTxt,
+      p_prendas:prendasElegidas(),
+      p_descripcion:$('descripcion').value.trim()
+    });
+    if(err) throw new Error(err.message);
+    const {token,numero}=(Array.isArray(data)?data[0]:data)||{};
+    if(!token) throw new Error('No se ha podido crear el pedido.');
+
+    /* El pedido ya existe: si fallan los archivos se avisa, pero no se pierde */
+    let avisoAdj='';
+    if(archivos.length){
+      try{
+        const adj=await Rev.subirVarios(token+'/pedido',archivos.slice(),
+          (i,n)=>{ b.textContent='Subiendo '+(i+1)+' de '+n+'…'; });
+        const r=await sb.rpc('pedido_adjuntos',{p_token:token,p_adjuntos:adj});
+        if(r.error) throw new Error(r.error.message);
+      }catch(errAdj){
+        avisoAdj='Los archivos no se han podido subir ('+errAdj.message+'). Envíalos desde tu enlace, en Comentarios, cuando veas el diseño.';
+      }
+    }
+    terminar(token,numero,avisoAdj);
+  }catch(err){
+    error('No se ha podido enviar: '+err.message);
+    b.disabled=false; b.textContent='Enviar pedido';
+  }
+});
+
+function terminar(token,numero,avisoAdj){
+  const enlace=new URL('ver.html?c='+token,location.href).href;
+  try{ localStorage.setItem('rumm_pedido_'+numero,enlace); }catch(e){}
+  $('form').hidden=true;
+  $('hecho').hidden=false;
+  $('hechoNum').textContent='Pedido '+numero;
+  $('hechoEnlace').value=enlace;
+  $('abrir').href=enlace;
+  if(avisoAdj){
+    const p=document.createElement('p');
+    p.style.color='var(--accent)'; p.textContent=avisoAdj;
+    $('hecho').insertBefore(p,$('hecho').querySelector('.enlace'));
+  }
+  window.scrollTo(0,0);
+}
+$('copiar').onclick=async()=>{
+  const v=$('hechoEnlace').value;
+  try{ await navigator.clipboard.writeText(v); }
+  catch(e){ $('hechoEnlace').select(); document.execCommand('copy'); }
+  $('copiar').textContent='Copiado';
+  setTimeout(()=>{ $('copiar').textContent='Copiar'; },1800);
+};
+
+cargarCatalogo();
+</script>
+</body>
+</html>

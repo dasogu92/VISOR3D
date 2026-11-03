@@ -119,6 +119,37 @@ En <https://github.com/dasogu92/VISOR3D> › **Add file › Upload files**, arra
 
 ---
 
+## Pedidos nuevos (pedido.html)
+
+Un formulario público para que el cliente te pida un diseño:
+`https://dasogu92.github.io/VISOR3D/pedido.html`. En **Revisiones › Enlace
+de pedidos** se copia para ponerlo en la web, en Instagram o en WhatsApp.
+
+El cliente rellena sus datos, lo que corre (asfalto, trail…), las prendas
+del catálogo con unidades, los colores que le gustan, su idea y sus
+referencias (logos, imágenes, PDF). Al enviarlo:
+
+- se crea el pedido con número **AAAA-NNNN** (2026-0001, 2026-0002…);
+- el cliente recibe **su enlace privado**, que muestra «Pedido recibido»
+  hasta que publiques el primer diseño;
+- te llega un correo (si Resend está configurado) y el pedido aparece en
+  **Revisiones › Pedidos** como *Nuevo*.
+
+En el pedido, **Diseñar para este pedido** crea el cliente en el visor con
+ese mismo enlace y abre la prenda. Subes el diseño, pulsas **Subir a enlace
+privado** (el nombre del cliente ya viene puesto) y el cliente lo ve en el
+enlace que ya tiene. El pedido pasa solo a *Enviado* al publicar y a
+*Aprobado* cuando el cliente lo aprueba.
+
+Requiere ejecutar `supabase/pedidos.sql` una vez en el SQL Editor, después
+de `esquema.sql`.
+
+Para que el cliente reciba un correo automático cuando su diseño esté listo
+hace falta verificar un dominio propio en Resend. Mientras tanto, mándale
+el enlace por WhatsApp o correo (botón **Copiar enlace del cliente**).
+
+---
+
 ## Privacidad
 
 Igual que los enlaces: el historial y los adjuntos solo los ve quien tiene el

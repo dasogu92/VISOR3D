@@ -1104,10 +1104,31 @@ async function abrirDiseno(d,boton){
   }
 }
 
+/* Enlace creado desde pedido.html y todavía sin diseño publicado */
+async function pedidoEnPreparacion(){
+  if(typeof Rev==='undefined'||!Rev.activo()) return false;
+  try{
+    const sb=await Rev.cliente();
+    const {data}=await sb.rpc('pedido_de',{p_token:token});
+    const p=data&&data[0];
+    if(!p) return false;
+    $('quien').textContent=p.empresa||p.nombre||'';
+    document.title='Pedido '+p.numero;
+    aviso('Pedido '+p.numero+' recibido',
+      'Estamos preparando tu diseño. Guarda este enlace: aquí lo verás en 3D '+
+      'cuando esté listo y podrás pedir cambios o aprobarlo.');
+    return true;
+  }catch(e){
+    console.warn('[pedido]',e);
+    return false;
+  }
+}
+
 async function arrancar(){
   if(!token){ aviso('Enlace incompleto','Abre el enlace completo que te hemos enviado.'); return; }
   try{ ficha=await fetchJSON(CARPETA+'galeria.json'); }
   catch(e){
+    if(await pedidoEnPreparacion()) return;
     console.warn('No se ha encontrado',new URL(CARPETA+'galeria.json',location.href).href);
     aviso('Enlace no válido','No se encuentra '+CARPETA+'galeria.json en el servidor.');
     return;
