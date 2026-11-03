@@ -2831,6 +2831,42 @@ async function publicarCliente(c,opciones){
   if(!c.disenos.length){ alert('Este cliente no tiene diseños.'); return; }
   if(!ghToken() && !pedirToken()) return;
 
+  /* Un diseño ilegible bloqueaba todo el enlace. Primero se intenta
+     recuperar desde lo guardado; si sigue roto, se ofrece quitarlo y
+     publicar el resto. */
+  const legible=async b=>{
+    try{ return !!b && b.size>0 && (await b.slice(0,1).arrayBuffer(), true); }
+    catch(e){ return false; }
+  };
+  const rotosDe=async()=>{
+    const r=[];
+    for(const d of c.disenos)
+      if(!(await legible(d.disenoBlob)) || !(await legible(d.previewBlob))) r.push(d);
+    return r;
+  };
+  let rotos0=await rotosDe();
+  if(rotos0.length){
+    try{
+      const rec=await idbGet(DB.galeria,'clientes');
+      const guardado=((rec&&rec.items)||[]).find(x=>x.token===c.token);
+      if(guardado) rotos0.forEach(d=>{
+        const g=guardado.disenos.find(x=>(x.id&&x.id===d.id)||(!x.id&&x.titulo===d.titulo&&x.modelo===d.modelo));
+        if(g){ d.disenoBlob=g.disenoBlob; d.previewBlob=g.previewBlob; }
+      });
+    }catch(e){}
+    rotos0=await rotosDe();
+  }
+  if(rotos0.length){
+    const lista=rotos0.map(d=>'«'+d.titulo+'»').join(', ');
+    if(!confirm('No se puede leer '+(rotos0.length===1?'el diseño ':'los diseños ')+lista+
+                ' (el navegador ha perdido la imagen).\n\n'+
+                'Aceptar: quitarlo del enlace de '+c.nombre+' y publicar el resto. Luego puedes volver a subirlo.\n'+
+                'Cancelar: no publicar.')) return;
+    c.disenos=c.disenos.filter(d=>!rotos0.includes(d));
+    await clientesGuardar();
+    if(!c.disenos.length){ alert('Este cliente no tiene diseños.'); return; }
+  }
+
   const carpeta='c/'+c.token+'/';
   const ficha={cliente:c.nombre, creado:new Date().toISOString().slice(0,10), disenos:[]};
   const archivos=[];
