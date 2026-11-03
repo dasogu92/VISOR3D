@@ -250,6 +250,49 @@
     word-break:break-all;
   }
 
+  /* ---------- revisiones ---------- */
+  .cuenta{
+    display:inline-block;min-width:16px;margin-left:6px;padding:0 4px;
+    background:var(--accent);color:var(--paper);font-size:9px;letter-spacing:0;text-align:center;
+  }
+  .cuenta:empty{display:none}
+  .caja.ancha{width:min(1100px,100%);height:86vh}
+  .revCuerpo{flex:1;min-height:0;display:flex}
+  .revLista{width:300px;flex:none;border-right:1px solid var(--rule);overflow-y:auto;padding:8px 0}
+  .revFiltros{display:flex;gap:6px;padding:8px var(--pad) 10px;border-bottom:1px solid var(--rule)}
+  .revFiltros button{
+    background:none;border:none;cursor:pointer;padding:4px 7px;
+    font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  }
+  .revFiltros button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  .revCli{padding:10px var(--pad) 4px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .revItem{
+    display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;cursor:pointer;
+    text-align:left;padding:7px var(--pad);font-size:11px;letter-spacing:.04em;
+  }
+  .revItem:hover{background:var(--stage)}
+  .revItem[aria-current="true"]{background:var(--stage);box-shadow:inset 3px 0 0 var(--accent)}
+  .revItem .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .revDetalle{flex:1;min-width:0;display:flex;flex-direction:column}
+  .revDetalle[hidden]{display:none}
+  .revCabDet{padding:14px var(--pad);border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .revCabDet h3{margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;flex:1;min-width:0}
+  .revCabDet a{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .revCabDet a:hover{color:var(--accent)}
+  .revHilo{flex:1;min-height:0;overflow-y:auto;padding:10px var(--pad)}
+  .revForm{border-top:1px solid var(--rule);padding:12px var(--pad) 14px}
+  .revForm textarea{
+    width:100%;min-height:64px;resize:vertical;border:1px solid var(--rule);
+    padding:8px;font:inherit;font-size:12px;margin-bottom:8px;
+  }
+  .revForm textarea:focus{outline:none;border-color:var(--accent)}
+  .revNada{margin:auto;color:var(--muted);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:var(--pad);text-align:center}
+  .campoLogin{
+    width:100%;margin-top:14px;border:none;border-bottom:1px solid var(--ink);background:none;
+    padding:8px 0;font:inherit;font-size:14px;text-align:center;
+  }
+  .campoLogin:focus{outline:none;border-bottom-color:var(--accent)}
+
   .toast{
     position:fixed;left:50%;bottom:52px;transform:translateX(-50%);
     background:var(--ink);color:var(--paper);padding:11px 18px;
@@ -336,6 +379,11 @@
     .cliBtns .ghost{flex:1 1 auto;text-align:center;padding:10px 8px}
     .dis{font-size:10px}
     .enlace{font-size:9px}
+    .caja.ancha{height:100%}
+    .revCuerpo{flex-direction:column}
+    .revLista{width:100%;max-height:34vh;border-right:none;border-bottom:1px solid var(--rule)}
+    .revForm textarea{font-size:16px}
+    .campoLogin{font-size:16px}
 
     .cajaCarga{width:100%}
     .cargaTit{font-size:13px}
@@ -374,6 +422,7 @@
     RUMM<sup>custom</sup>
   </button>
   <div class="tools">
+    <button class="ghost" id="btnRev" hidden><span class="larga">Revisiones</span><span class="corta">Rev.</span><span class="cuenta" id="revCuenta"></span></button>
     <button class="ghost" id="btnLocal"><span class="larga">Abrir archivo</span><span class="corta">Abrir</span></button>
     <button class="ghost solid" id="btnZip"><span class="larga">Subir modelo</span><span class="corta">Modelo</span></button>
   </div>
@@ -519,9 +568,62 @@
   </div>
 </div>
 
+<div class="modal" id="modalRev" hidden>
+  <div class="caja ancha">
+    <div class="cabecera">
+      <h2>Revisiones</h2>
+      <button class="ghost" id="revRecargar">Actualizar</button>
+      <button class="ghost" id="revSalir">Cerrar sesión</button>
+      <button class="cerrar" id="cerrarRev" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="revCuerpo">
+      <div class="revLista">
+        <div class="revFiltros" id="revFiltros">
+          <button data-f="pendientes" aria-pressed="true">Pendientes</button>
+          <button data-f="todos" aria-pressed="false">Todos</button>
+          <button data-f="aprobados" aria-pressed="false">Aprobados</button>
+        </div>
+        <div id="revLista"></div>
+      </div>
+      <p class="revNada" id="revNada">Elige un diseño</p>
+      <div class="revDetalle" id="revDetalle" hidden>
+        <div class="revCabDet">
+          <h3 id="revTitulo"></h3>
+          <span class="revSello" id="revSello"></span>
+          <a id="revVerCliente" target="_blank" rel="noopener">Ver como cliente</a>
+        </div>
+        <div class="revHilo" id="revHilo"></div>
+        <div class="revForm">
+          <textarea id="revTexto" placeholder="Responder al cliente…"></textarea>
+          <div class="revElegidos" id="revElegidos" hidden></div>
+          <input type="file" id="revArchivos" multiple hidden>
+          <div class="actions">
+            <button class="ghost" id="revAdjuntar">Adjuntar</button>
+            <button class="ghost solid" id="revEnviar">Responder</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="cargando" id="dlgLogin" hidden>
+  <form class="cajaCarga" id="formLogin">
+    <p class="cargaTit">Revisiones</p>
+    <p class="cargaSub" id="loginPista">Entra con tu cuenta del estudio</p>
+    <input class="campoLogin" id="loginEmail" type="email" placeholder="Correo" autocomplete="username" required>
+    <input class="campoLogin" id="loginClave" type="password" placeholder="Contraseña" autocomplete="current-password" required>
+    <div class="cargaBtns">
+      <button class="ghost" type="button" id="loginCancelar">Cancelar</button>
+      <button class="ghost solid" type="submit" id="loginEntrar">Entrar</button>
+    </div>
+  </form>
+</div>
+
 <p class="toast" id="toast" hidden></p>
 <div class="ticker" aria-hidden="true"><div id="tickerTrack"></div></div>
 
+<script src="revisiones.js"></script>
 <script>
 /* ===============================================================
    CONFIGURACIÓN
@@ -531,6 +633,9 @@ const GH={
   repo:'VISOR3D',
   rama:'main'
 };
+
+/* Revisiones con el cliente: se configuran en revisiones.js */
+const REV_ON=typeof Rev!=='undefined'&&Rev.activo();
 
 const CONFIG={
   catalogo:'catalogo.json',
@@ -2157,18 +2262,37 @@ async function anadirDisenoA(c){
        poder leerse si se mueve o si el navegador pierde el permiso. */
     const copia=new Blob([await S.designFile.arrayBuffer()],
                          {type:S.designFile.type||'image/jpeg'});
-    c.disenos.push(conId({
-      titulo:($('tituloDis').value||'').trim()||S.actual.name||'Sin título',
-      modelo:S.actual.code,
-      modelo_nombre:S.actual.name||'',
-      disenoBlob:copia,
-      disenoNombre:S.designFile.name||'diseno.jpg',
-      previewBlob:preview,
-      camara:{
-        theta:S.orbit.theta, phi:S.orbit.phi, dist:S.orbit.dist,
-        luzKey:S.luces.key.intensity, luzFill:S.luces.fill.intensity
-      }
-    }));
+    const titulo=($('tituloDis').value||'').trim()||S.actual.name||'Sin título';
+    const camara={
+      theta:S.orbit.theta, phi:S.orbit.phi, dist:S.orbit.dist,
+      luzKey:S.luces.key.intensity, luzFill:S.luces.fill.intensity
+    };
+
+    /* Mismo título y mismo modelo en este cliente: puede ser una versión
+       nueva del diseño. Así conserva su historial de comentarios. */
+    const previo=c.disenos.find(x=>clave(x.titulo)===clave(titulo)&&x.modelo===S.actual.code);
+    const vPrev=previo?(previo.version||1):0;
+    if(previo&&confirm(
+        '«'+previo.titulo+'» ya está en el enlace de '+c.nombre+' (versión '+vPrev+').\n\n'+
+        'Aceptar: sustituirlo por la versión '+(vPrev+1)+', con el mismo historial.\n'+
+        'Cancelar: añadirlo como un diseño aparte.')){
+      previo.disenoBlob=copia;
+      previo.disenoNombre=S.designFile.name||'diseno.jpg';
+      previo.previewBlob=preview;
+      previo.camara=camara;
+      previo.version=vPrev+1;
+    }else{
+      c.disenos.push(conId({
+        titulo,
+        modelo:S.actual.code,
+        modelo_nombre:S.actual.name||'',
+        disenoBlob:copia,
+        disenoNombre:S.designFile.name||'diseno.jpg',
+        previewBlob:preview,
+        camara,
+        version:1
+      }));
+    }
     $('tituloDis').value='';
   }
 }
@@ -2192,6 +2316,7 @@ function modalPintar(){
         </span>
         <span class="cliBtns">
           <button class="ghost" data-a="publicar">Publicar</button>
+          ${REV_ON&&c.publicado?'<button class="ghost" data-a="revision">Revisión</button>':''}
           <button class="ghost" data-a="enlace">Copiar enlace</button>
           <button class="ghost" data-a="renombrar">Renombrar</button>
           <button class="ghost" data-a="borrar">Eliminar</button>
@@ -2202,7 +2327,7 @@ function modalPintar(){
     c.disenos.forEach(d=>{
       const fila=document.createElement('div');
       fila.className='dis';
-      fila.innerHTML=`<span>${d.titulo} — ${d.modelo_nombre||d.modelo}</span>
+      fila.innerHTML=`<span>${d.titulo}${(d.version||1)>1?' · v'+d.version:''} — ${d.modelo_nombre||d.modelo}</span>
                       <button data-d="${d.id}">Quitar</button>`;
       fila.querySelector('button').onclick=async()=>{
         c.disenos=c.disenos.filter(x=>x.id!==d.id);
@@ -2220,6 +2345,7 @@ function modalPintar(){
 
 async function accionCliente(c,accion){
   if(accion==='publicar'){ publicarCliente(c,{abrir:true}); return; }
+  if(accion==='revision'){ $('modal').hidden=true; abrirRevisiones({token:c.token}); return; }
   if(accion==='enlace'){
     await copiar(enlaceDe(c.token));
     toast(c.publicado?'Enlace copiado':'Enlace copiado, pero aún sin publicar');
@@ -2247,6 +2373,318 @@ $('cerrarModal').onclick=()=>{ $('modal').hidden=true; };
 $('modal').onclick=e=>{ if(e.target===$('modal')) $('modal').hidden=true; };
 $('btnNuevoCli').onclick=nuevoCliente;
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('modal').hidden=true; });
+
+/* ===============================================================
+   REVISIONES — historial de comentarios con cada cliente.
+   Datos en Supabase (revisiones.js). El cliente comenta desde ver.html;
+   aquí se aceptan o rechazan sus peticiones y se le contesta.
+=============================================================== */
+const R={mensajes:[], nombres:{}, filtro:'pendientes', soloToken:null, sel:null, elegidos:[]};
+
+/* Cliente de Supabase con sesión iniciada; null si se cancela el acceso */
+async function revSesion(){
+  const sb=await Rev.cliente();
+  const {data}=await sb.auth.getSession();
+  if(data&&data.session) return sb;
+
+  return new Promise(res=>{
+    const dlg=$('dlgLogin'), pista=$('loginPista');
+    pista.textContent='Entra con tu cuenta del estudio';
+    pista.classList.remove('err');
+    dlg.hidden=false;
+    setTimeout(()=>$('loginEmail').focus(),30);
+
+    const cerrar=v=>{
+      dlg.hidden=true;
+      $('formLogin').onsubmit=null; $('loginCancelar').onclick=null;
+      res(v);
+    };
+    $('loginCancelar').onclick=()=>cerrar(null);
+    $('formLogin').onsubmit=async e=>{
+      e.preventDefault();
+      $('loginEntrar').disabled=true;
+      const {error}=await sb.auth.signInWithPassword({
+        email:$('loginEmail').value.trim(), password:$('loginClave').value
+      });
+      $('loginEntrar').disabled=false;
+      if(error){
+        pista.textContent=/invalid login/i.test(error.message)
+          ? 'Correo o contraseña incorrectos' : 'No se ha podido entrar: '+error.message;
+        pista.classList.add('err');
+        return;
+      }
+      $('loginClave').value='';
+      cerrar(sb);
+    };
+  });
+}
+
+/* Tras publicar: deja en el historial cada versión nueva, con su vista
+   previa, para que se vea qué se cambió y cuándo. */
+async function anunciarVersiones(c){
+  const nuevos=c.disenos.filter(d=>(d.version||1)>(d.anunciada||0));
+  if(!nuevos.length) return;
+  try{
+    const sb=await revSesion();
+    if(!sb) return;
+    for(const d of nuevos){
+      const v=d.version||1;
+      cargaPaso('Registrando «'+d.titulo+'» v'+v+' en Revisiones…');
+      const adjuntos=[];
+      if(d.previewBlob){
+        const f=new File([d.previewBlob],'version-'+v+'.png',{type:'image/png'});
+        adjuntos.push(await Rev.subir(c.token+'/'+d.id,f,'version-'+v+'.png'));
+      }
+      const {error}=await sb.from('mensajes').insert({
+        token:c.token, diseno:d.id, diseno_titulo:d.titulo, version:v,
+        autor:'estudio', nombre:'RUMM', tipo:'version', adjuntos
+      });
+      if(error) throw new Error(error.message);
+      d.anunciada=v;
+    }
+    await clientesGuardar();
+  }catch(e){
+    console.warn('[revisiones]',e);
+    toast('Publicado, pero la versión no ha quedado en Revisiones: '+e.message,7000);
+  }
+}
+
+async function abrirRevisiones(opciones){
+  const sb=await revSesion();
+  if(!sb) return;
+  R.soloToken=(opciones&&opciones.token)||null;
+  if(R.soloToken){ R.filtro='todos'; R.sel=null; }
+  $('modalRev').hidden=false;
+  await revCargar();
+}
+
+async function revCargar(){
+  const sb=await Rev.cliente();
+  $('revLista').innerHTML='<p class="vacio">Cargando…</p>';
+  const [m,cl,eq]=await Promise.all([
+    sb.from('mensajes').select('*').order('creado',{ascending:true}).order('id',{ascending:true}).limit(10000),
+    sb.from('clientes').select('token,nombre'),
+    sb.rpc('es_estudio')
+  ]);
+  const fallo=m.error||cl.error;
+  if(fallo){
+    $('revLista').innerHTML='<p class="vacio">'+Rev.esc(fallo.message)+'</p>';
+    return;
+  }
+  if(eq.data===false){
+    $('revLista').innerHTML='<p class="vacio">Tu correo no está en la tabla «equipo» de Supabase, así que no puedes ver los mensajes. Añádelo (ver supabase/LEEME.md).</p>';
+    return;
+  }
+  R.mensajes=m.data||[];
+  R.nombres={};
+  (cl.data||[]).forEach(x=>{ R.nombres[x.token]=x.nombre; });
+  revPintarLista();
+  revPintarDetalle();
+  revCuenta();
+}
+
+/* Un diseño por cliente y id. La versión vigente sale de este navegador
+   si lo conoce; si no (otro equipo), de la última del historial. */
+function revDisenos(){
+  const mapa=new Map();
+  const k=(t,d)=>t+'|'+d;
+  clientes.forEach(c=>{
+    if(!c.publicado) return;
+    c.disenos.forEach(d=>{
+      if(!d.id) return;
+      mapa.set(k(c.token,d.id),{token:c.token,id:d.id,titulo:d.titulo,version:d.version||1,
+                                local:true,cliente:c.nombre,msgs:[]});
+    });
+  });
+  R.mensajes.forEach(m=>{
+    let e=mapa.get(k(m.token,m.diseno));
+    if(!e){
+      e={token:m.token,id:m.diseno,titulo:m.diseno_titulo,version:1,local:false,
+         cliente:R.nombres[m.token]||m.token,msgs:[]};
+      mapa.set(k(m.token,m.diseno),e);
+    }
+    e.msgs.push(m);
+    if(!e.local&&m.version>e.version) e.version=m.version;
+  });
+  return [...mapa.values()].map(e=>{
+    if(R.nombres[e.token]) e.cliente=R.nombres[e.token];
+    e.estado=Rev.estado(e.msgs,e.version);
+    e.ultimo=e.msgs.length?e.msgs[e.msgs.length-1].creado:'';
+    return e;
+  });
+}
+
+function revPintarLista(){
+  const cont=$('revLista');
+  let lista=revDisenos();
+  if(R.soloToken) lista=lista.filter(e=>e.token===R.soloToken);
+  if(R.filtro==='pendientes') lista=lista.filter(e=>e.estado.pendientes>0);
+  if(R.filtro==='aprobados')  lista=lista.filter(e=>e.estado.clave==='aprobado');
+  lista.sort((a,b)=>String(b.ultimo).localeCompare(String(a.ultimo)));
+
+  document.querySelectorAll('#revFiltros button').forEach(b=>
+    b.setAttribute('aria-pressed',String(b.dataset.f===R.filtro)));
+
+  cont.innerHTML='';
+  if(R.soloToken){
+    const p=document.createElement('p');
+    p.className='revCli';
+    p.textContent=(R.nombres[R.soloToken]||'Cliente')+' · ';
+    const todos=document.createElement('button');
+    todos.className='toggleAll'; todos.textContent='Ver todos los clientes';
+    todos.onclick=()=>{ R.soloToken=null; revPintarLista(); };
+    p.appendChild(todos);
+    cont.appendChild(p);
+  }
+  if(!lista.length){
+    const p=document.createElement('p');
+    p.className='vacio';
+    p.textContent=R.filtro==='pendientes'?'Nada pendiente.':'Sin diseños.';
+    cont.appendChild(p);
+    return;
+  }
+  lista.forEach(e=>{
+    const b=document.createElement('button');
+    b.className='revItem';
+    b.setAttribute('aria-current',String(!!(R.sel&&R.sel.token===e.token&&R.sel.id===e.id)));
+    b.innerHTML='<span class="t"></span><span class="revSello '+e.estado.clave+'"></span>'+
+                (e.estado.pendientes?'<span class="cuenta">'+e.estado.pendientes+'</span>':'');
+    b.querySelector('.t').textContent=e.cliente+' · '+e.titulo+(e.version>1?' v'+e.version:'');
+    b.querySelector('.revSello').textContent=e.estado.texto;
+    b.onclick=()=>{ R.sel={token:e.token,id:e.id}; revPintarLista(); revPintarDetalle(); };
+    cont.appendChild(b);
+  });
+}
+
+function revPintarDetalle(){
+  const e=R.sel&&revDisenos().find(x=>x.token===R.sel.token&&x.id===R.sel.id);
+  $('revDetalle').hidden=!e;
+  $('revNada').hidden=!!e;
+  if(!e) return;
+  $('revTitulo').textContent=e.cliente+' · '+e.titulo+' · v'+e.version;
+  $('revSello').className='revSello '+e.estado.clave;
+  $('revSello').textContent=e.estado.texto;
+  $('revVerCliente').href=enlaceDe(e.token);
+  const hilo=$('revHilo');
+  Rev.pintarHilo(hilo,e.msgs,{vista:'estudio',acciones:revAcciones});
+  hilo.scrollTop=hilo.scrollHeight;
+}
+
+function revAcciones(m){
+  if(m.tipo!=='comentario') return null;
+  const div=document.createElement('div');
+  div.className='revAcc';
+  const boton=(txt,clase,fn)=>{
+    const b=document.createElement('button');
+    b.textContent=txt; b.className=clase; b.onclick=fn;
+    div.appendChild(b);
+  };
+  if(m.estado==='pendiente'){
+    boton('Aceptar','si',()=>revDecidir(m,'aceptado'));
+    boton('Rechazar','no',()=>revDecidir(m,'rechazado'));
+  }else{
+    boton('Volver a pendiente','link',()=>revDecidir(m,'pendiente'));
+  }
+  return div;
+}
+
+async function revDecidir(m,estado){
+  let motivo=null;
+  if(estado==='rechazado'){
+    motivo=prompt('¿Por qué no se hace este cambio? El cliente lo verá.','');
+    if(motivo===null) return;
+  }else if(estado==='aceptado'){
+    motivo=prompt('Nota para el cliente (opcional):','');
+    if(motivo===null) return;
+  }
+  const cambios={
+    estado,
+    motivo:(motivo||'').trim()||null,
+    resuelto:estado==='pendiente'?null:new Date().toISOString()
+  };
+  const sb=await Rev.cliente();
+  const {error}=await sb.from('mensajes').update(cambios).eq('id',m.id);
+  if(error){ toast('No se ha podido guardar: '+error.message,6000); return; }
+  Object.assign(m,cambios);
+  revPintarLista();
+  revPintarDetalle();
+  revCuenta();
+}
+
+async function revResponder(){
+  const e=R.sel&&revDisenos().find(x=>x.token===R.sel.token&&x.id===R.sel.id);
+  if(!e) return;
+  const texto=$('revTexto').value.trim();
+  if(!texto&&!R.elegidos.length){ $('revTexto').focus(); return; }
+  const b=$('revEnviar');
+  b.disabled=true;
+  try{
+    const adjuntos=R.elegidos.length
+      ? await Rev.subirVarios(e.token+'/'+e.id,R.elegidos.slice(),
+          (i,n)=>{ b.textContent='Subiendo '+(i+1)+' de '+n+'…'; })
+      : [];
+    b.textContent='Enviando…';
+    const sb=await Rev.cliente();
+    const {data,error}=await sb.from('mensajes').insert({
+      token:e.token, diseno:e.id, diseno_titulo:e.titulo, version:e.version,
+      autor:'estudio', nombre:'RUMM', tipo:'respuesta', texto, adjuntos
+    }).select().single();
+    if(error) throw new Error(error.message);
+    R.mensajes.push(data);
+    $('revTexto').value='';
+    R.elegidos.vaciar();
+    revPintarLista();
+    revPintarDetalle();
+  }catch(err){
+    toast(err.message,7000);
+  }finally{
+    b.disabled=false;
+    b.textContent='Responder';
+  }
+}
+
+function revCuenta(){
+  const n=R.mensajes.filter(m=>m.tipo==='comentario'&&m.estado==='pendiente').length;
+  $('revCuenta').textContent=n||'';
+}
+
+/* Al arrancar: contador de pendientes si ya hay sesión, sin pedirla */
+async function revArrancar(){
+  Rev.ponerCss();
+  $('btnRev').hidden=false;
+  R.elegidos=Rev.selector($('revArchivos'),$('revElegidos'));
+  if(location.hash==='#revisiones'){ abrirRevisiones(); return; }
+  try{
+    const sb=await Rev.cliente();
+    const {data}=await sb.auth.getSession();
+    if(!data||!data.session) return;
+    const {count}=await sb.from('mensajes').select('id',{count:'exact',head:true}).eq('estado','pendiente');
+    $('revCuenta').textContent=count||'';
+  }catch(e){ console.warn('[revisiones]',e); }
+}
+
+$('btnRev').onclick=()=>abrirRevisiones();
+$('cerrarRev').onclick=()=>{ $('modalRev').hidden=true; };
+$('modalRev').onclick=e=>{ if(e.target===$('modalRev')) $('modalRev').hidden=true; };
+$('revRecargar').onclick=revCargar;
+$('revSalir').onclick=async()=>{
+  const sb=await Rev.cliente();
+  await sb.auth.signOut();
+  $('modalRev').hidden=true;
+  $('revCuenta').textContent='';
+  toast('Sesión cerrada');
+};
+document.querySelectorAll('#revFiltros button').forEach(b=>{
+  b.onclick=()=>{ R.filtro=b.dataset.f; revPintarLista(); };
+});
+$('revAdjuntar').onclick=()=>$('revArchivos').click();
+$('revEnviar').onclick=revResponder;
+$('revTexto').addEventListener('paste',e=>{
+  const fs=Array.from((e.clipboardData&&e.clipboardData.files)||[]);
+  if(fs.length){ e.preventDefault(); R.elegidos.anadir(fs); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('modalRev').hidden=true; });
+if(REV_ON) revArrancar();
 
 /* ---------------------------------------------------------------
    Pantalla de carga
@@ -2403,7 +2841,9 @@ async function publicarCliente(c,opciones){
     const fP='preview-'+(i+1)+'.png';
     archivos.push([carpeta+fD,d.disenoBlob,d.titulo]);
     archivos.push([carpeta+fP,d.previewBlob,d.titulo]);
+    conId(d);
     ficha.disenos.push({
+      id:d.id, version:d.version||1,
       titulo:d.titulo, modelo:d.modelo, modelo_nombre:d.modelo_nombre,
       diseno:fD, preview:fP, camara:d.camara
     });
@@ -2432,6 +2872,16 @@ async function publicarCliente(c,opciones){
         +' Ábrelo en Clientes, pulsa Quitar y vuelve a añadirlo.');
     }
 
+    /* El cliente tiene que existir en Supabase antes de que abra el
+       enlace, o no podrá comentar. */
+    if(REV_ON){
+      cargaPaso('Dando de alta la revisión…');
+      const sb=await revSesion();
+      if(!sb) throw new Error('Sin sesión en Revisiones: el cliente no podría comentar. Vuelve a publicar e inicia sesión.');
+      const {error}=await sb.from('clientes').upsert({token:c.token,nombre:c.nombre});
+      if(error) throw new Error('Revisiones: '+error.message);
+    }
+
     for(let i=0;i<archivos.length;i++){
       const [ruta,blob]=archivos[i];
       const nombre=ruta.split('/').pop();
@@ -2442,6 +2892,7 @@ async function publicarCliente(c,opciones){
     cargaPaso('Guardando…',100);
     c.publicado=true;
     await clientesGuardar();
+    if(REV_ON) await anunciarVersiones(c);
     const enlace=enlaceDe(c.token);
     console.log('Enlace de '+c.nombre+':',enlace);
     await copiar(enlace);

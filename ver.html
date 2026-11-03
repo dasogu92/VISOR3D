@@ -97,6 +97,22 @@
   }
   .comentar .cerrar:hover{color:var(--accent)}
   .comentar .ok{margin:10px 0 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+  .comentar .ghost[disabled]{opacity:.4;cursor:default}
+
+  /* Con historial: el panel crece y el hilo hace scroll por dentro */
+  .comentar.conHilo{width:380px;max-height:calc(100% - 32px)}
+  .comentar.conHilo.on{display:flex;flex-direction:column}
+  .comentar.conHilo textarea{min-height:76px;flex:none}
+  .comentar.conHilo .sobre{margin-bottom:6px}
+  .comentar .revSello{align-self:flex-start;margin-bottom:10px}
+  .hilo{flex:1 1 auto;min-height:60px;overflow-y:auto;margin:0 -6px 12px;padding:0 6px;
+        border-bottom:1px solid var(--rule)}
+  .hilo[hidden]{display:none}
+  .comentar .fila .ghost.solid{background:var(--ink);color:var(--paper)}
+  .comentar .fila .ghost.solid:hover{background:var(--accent);border-color:var(--accent)}
+  .comentar .fila .ghost.aprobar{border-color:#1F6B3D;color:#1F6B3D}
+  .comentar .fila .ghost.aprobar:hover{background:#1F6B3D;color:#fff}
+  .item .revSello{margin-top:5px}
 
   .visorFicha{
     position:fixed;inset:0;background:var(--paper);z-index:45;
@@ -165,6 +181,8 @@
     }
     .comentar h3{font-size:12px}
     .comentar textarea{min-height:34vh;font-size:16px}  /* 16px evita el zoom de iOS */
+    .comentar.conHilo{width:auto;max-height:none}
+    .comentar.conHilo textarea{min-height:90px}
     .comentar input{font-size:16px}
     .comentar .cerrar{right:var(--pad);top:14px;font-size:22px}
     .comentar .fila .ghost{padding:12px 10px}
@@ -210,8 +228,12 @@
       <button class="cerrar" id="cerrarComentar" aria-label="Cerrar">&times;</button>
       <h3>Comentarios</h3>
       <p class="sobre" id="sobreQue"></p>
+      <span class="revSello" id="selloEstado" hidden></span>
+      <div class="hilo" id="hilo" hidden></div>
       <input id="cmtNombre" type="text" placeholder="Tu nombre" autocomplete="name">
       <textarea id="cmtTexto" placeholder="¿Qué cambiarías? Colores, posición del logo, talla…"></textarea>
+      <div class="revElegidos" id="cmtElegidos" hidden></div>
+      <input type="file" id="cmtArchivos" multiple hidden>
       <div class="fila" id="filaEnvio"></div>
       <p class="ok" id="cmtOk" hidden>Enviado. Gracias.</p>
     </div>
@@ -236,6 +258,7 @@
   <p id="avisoTexto"></p>
 </div>
 
+<script src="revisiones.js"></script>
 <script>
 /* ===============================================================
    Configuración
@@ -1044,8 +1067,10 @@ async function abrirDiseno(d,boton){
   document.querySelectorAll('.item').forEach(b=>b.setAttribute('aria-current','false'));
   if(boton) boton.setAttribute('aria-current','true');
   S.actual={code:d.modelo,name:d.modelo_nombre||d.titulo};
-  S.designURL=CARPETA+d.diseno;
+  S.actualDis=d;
+  S.designURL=CARPETA+d.diseno+conVersion(d);
   status('Cargando prenda…');
+  if($('panelComentar').classList.contains('on')) abrirPanelRevision();
 
   quitarModelos();
   S.materiales=[];
@@ -1104,18 +1129,25 @@ async function arrancar(){
     const b=document.createElement('button');
     b.className='item';
     b.setAttribute('aria-current','false');
-    b.innerHTML='<div class="shot"></div><div class="tit">'+d.titulo+'</div>';
+    b._dis=d;
+    b.innerHTML='<div class="shot"></div><div class="tit">'+d.titulo+
+                ((d.version||1)>1?' · v'+d.version:'')+'</div>';
     const img=document.createElement('img');
     img.alt=''; img.loading='lazy';
     img.onload=()=>img.classList.add('on');
     b.querySelector('.shot').appendChild(img);
-    img.src=CARPETA+(d.preview||d.diseno);
+    img.src=CARPETA+(d.preview||d.diseno)+conVersion(d);
     b.onclick=()=>abrirDiseno(d,b);
     tira.appendChild(b);
     if(i===0) setTimeout(()=>abrirDiseno(d,b),0);
   });
   if(!(ficha.disenos||[]).length) status('Todavía no hay diseños');
+  cargarHilo();
 }
+
+/* GitHub Pages cachea unos minutos: con la versión en la URL, una
+   versión nueva del diseño se ve en cuanto se publica. */
+function conVersion(d){ return d.version ? '?v='+d.version : ''; }
 
 /* ===============================================================
    Comentarios del cliente
@@ -1155,11 +1187,20 @@ function mensajeComentario(){
 function pintarBotonesEnvio(){
   const fila=$('filaEnvio');
   fila.innerHTML='';
-  const añade=(txt,fn)=>{
+  const añade=(txt,fn,clase,id)=>{
     const b=document.createElement('button');
-    b.className='ghost'; b.textContent=txt; b.onclick=fn;
+    b.className='ghost'+(clase?' '+clase:''); b.textContent=txt; b.onclick=fn;
+    if(id) b.id=id;
     fila.appendChild(b);
+    return b;
   };
+
+  if(REV_ON){
+    añade('Adjuntar',()=>$('cmtArchivos').click());
+    añade('Enviar',e=>enviarRevision('comentario',e.currentTarget),'solid','btnEnviarRev');
+    añade('Aprobar diseño',e=>enviarRevision('aprobado',e.currentTarget),'aprobar','btnAprobar');
+    return;
+  }
 
   if(CONTACTO.formspree) añade('Enviar',enviarFormspree);
   if(CONTACTO.email)     añade('Por correo',enviarCorreo);
@@ -1222,11 +1263,162 @@ $('btnComentar').onclick=()=>{
   const p=$('panelComentar');
   p.classList.toggle('on');
   if(p.classList.contains('on')){
-    $('sobreQue').textContent=(S.actual&&S.actual.name)||'';
-    $('cmtTexto').focus();
+    abrirPanelRevision();
+    if(!REV_ON) $('cmtTexto').focus();
   }
 };
 $('cerrarComentar').onclick=()=>$('panelComentar').classList.remove('on');
+
+/* ===============================================================
+   Revisión con historial (Supabase, ver revisiones.js).
+   Si no está configurado, el panel sigue enviando por formulario,
+   correo o WhatsApp como antes.
+=============================================================== */
+const REV_ON=typeof Rev!=='undefined'&&Rev.activo();
+let hiloTodos=[];                 // todos los mensajes de este cliente
+let elegidos=[];                  // archivos para adjuntar
+
+const idDe=d=>d.id||d.diseno;     // las galerías antiguas no traen id
+const mensajesDe=d=>hiloTodos.filter(m=>m.diseno===idDe(d));
+
+function abrirPanelRevision(){
+  const d=S.actualDis;
+  $('sobreQue').textContent=d
+    ? (d.titulo||(S.actual&&S.actual.name)||'')+((d.version||1)>1?' · versión '+d.version:'')
+    : ((S.actual&&S.actual.name)||'');
+  if(REV_ON){ pintarHiloActual(); cargarHilo(); }
+}
+
+async function cargarHilo(){
+  if(!REV_ON) return;
+  try{
+    const sb=await Rev.cliente();
+    const {data,error}=await sb.rpc('hilo',{p_token:token});
+    if(error) throw error;
+    hiloTodos=data||[];
+  }catch(e){
+    console.warn('[revisión] no se ha podido leer el historial',e);
+    return;
+  }
+  pintarSellos();
+  if($('panelComentar').classList.contains('on')) pintarHiloActual();
+}
+
+/* En la tira, cada diseño lleva su estado si el cliente ya ha dicho algo */
+function pintarSellos(){
+  document.querySelectorAll('.item').forEach(b=>{
+    const d=b._dis; if(!d) return;
+    const ms=mensajesDe(d);
+    let s=b.querySelector('.revSello');
+    if(!ms.some(m=>m.autor==='cliente')){ if(s) s.remove(); return; }
+    const e=Rev.estado(ms,d.version||1);
+    if(!s){ s=document.createElement('span'); b.appendChild(s); }
+    s.className='revSello '+e.clave;
+    s.textContent=e.texto;
+  });
+}
+
+function pintarHiloActual(){
+  const d=S.actualDis;
+  if(!d) return;
+  const ms=mensajesDe(d);
+  const hilo=$('hilo');
+  Rev.pintarHilo(hilo,ms,{vista:'cliente'});
+  hilo.scrollTop=hilo.scrollHeight;
+
+  const e=Rev.estado(ms,d.version||1);
+  const sello=$('selloEstado');
+  sello.hidden=!ms.length;
+  sello.className='revSello '+e.clave;
+  sello.textContent=e.texto;
+
+  const ap=$('btnAprobar');
+  if(ap){
+    ap.disabled=e.clave==='aprobado';
+    ap.textContent=e.clave==='aprobado'?'Aprobado':'Aprobar diseño';
+  }
+}
+
+async function enviarRevision(tipo,boton){
+  const d=S.actualDis;
+  if(!d) return;
+  const nombre=$('cmtNombre').value.trim();
+  const texto=$('cmtTexto').value.trim();
+  const v=d.version||1;
+
+  if(tipo==='comentario'&&!texto&&!elegidos.length){ $('cmtTexto').focus(); return; }
+  if(!nombre){
+    $('cmtNombre').placeholder='Tu nombre (para saber quién lo pide)';
+    $('cmtNombre').focus();
+    return;
+  }
+  if(tipo==='aprobado'&&!confirm(
+      '¿Apruebas la versión '+v+' de «'+(d.titulo||'este diseño')+'»?\n\n'+
+      'Nos llegará el aviso para seguir adelante con ella.'+
+      (texto?'\nTu comentario se enviará junto con la aprobación.':'')))
+    return;
+
+  localStorage.setItem('rev_nombre',nombre);
+  const botones=[...document.querySelectorAll('#filaEnvio .ghost')];
+  const textoBoton=boton.textContent;
+  botones.forEach(b=>b.disabled=true);
+  try{
+    const adjuntos=elegidos.length
+      ? await Rev.subirVarios(token+'/'+idDe(d),elegidos.slice(),
+          (i,n)=>{ boton.textContent='Subiendo '+(i+1)+' de '+n+'…'; })
+      : [];
+    boton.textContent='Enviando…';
+    const sb=await Rev.cliente();
+    const {error}=await sb.rpc('enviar',{
+      p_token:token, p_diseno:idDe(d), p_titulo:d.titulo||'', p_version:v,
+      p_nombre:nombre, p_texto:texto, p_tipo:tipo, p_adjuntos:adjuntos
+    });
+    if(error) throw new Error(error.message);
+
+    $('cmtTexto').value='';
+    elegidos.vaciar();
+    $('cmtOk').textContent=tipo==='aprobado'?'Aprobado. Gracias.':'Enviado. Gracias.';
+    $('cmtOk').hidden=false;
+    setTimeout(()=>{ $('cmtOk').hidden=true; },2600);
+    await cargarHilo();
+  }catch(e){
+    console.error(e);
+    alert((e&&e.message)||'No se ha podido enviar. Inténtalo de nuevo.');
+  }finally{
+    boton.textContent=textoBoton;
+    botones.forEach(b=>b.disabled=false);
+    pintarHiloActual();
+  }
+}
+
+if(REV_ON){
+  Rev.ponerCss();
+  $('panelComentar').classList.add('conHilo');
+  $('hilo').hidden=false;
+  $('btnComentar').textContent='Comentarios';
+  $('cmtTexto').placeholder='¿Qué cambiarías? Colores, posición del logo, talla… Puedes adjuntar imágenes o PDF.';
+  $('cmtNombre').value=localStorage.getItem('rev_nombre')||'';
+  elegidos=Rev.selector($('cmtArchivos'),$('cmtElegidos'));
+
+  /* Pegar una captura en el texto la adjunta */
+  $('cmtTexto').addEventListener('paste',e=>{
+    const fs=Array.from((e.clipboardData&&e.clipboardData.files)||[]);
+    if(fs.length){ e.preventDefault(); elegidos.anadir(fs); }
+  });
+  /* Soltar archivos sobre el panel también los adjunta */
+  const panel=$('panelComentar');
+  panel.addEventListener('dragover',e=>{ e.preventDefault(); });
+  panel.addEventListener('drop',e=>{
+    e.preventDefault();
+    const fs=Array.from((e.dataTransfer&&e.dataTransfer.files)||[]);
+    if(fs.length) elegidos.anadir(fs);
+  });
+
+  /* Si el estudio contesta mientras el cliente tiene el panel abierto */
+  setInterval(()=>{
+    if(!document.hidden&&$('panelComentar').classList.contains('on')) cargarHilo();
+  },45000);
+}
 pintarBotonesEnvio();
 
 /* ===============================================================
