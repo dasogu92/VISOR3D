@@ -1,0 +1,22 @@
+{
+  "cliente": "Davidprueba",
+  "creado": "2026-11-03",
+  "disenos": [
+    {
+      "id": "2ejtypvu",
+      "version": 1,
+      "titulo": "david prueba",
+      "modelo": "0100",
+      "modelo_nombre": "0100 CAMISETA ML",
+      "diseno": "diseno-1.png",
+      "preview": "preview-1.png",
+      "camara": {
+        "theta": -0.19600000000000029,
+        "phi": 1.3857166941154067,
+        "dist": 141.93488286647664,
+        "luzKey": 0.3,
+        "luzFill": 0.3
+      }
+    }
+  ]
+}
