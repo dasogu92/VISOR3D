@@ -8,8 +8,8 @@
    visores funcionan como antes.
 =============================================================== */
 const REV_CONFIG={
-  url:'',            // https://xxxxxxxx.supabase.co
-  anonKey:'',        // Project Settings › API › anon public. Es pública por diseño.
+  url:'https://ibgovgfyibxxztfkifro.supabase.co',            // https://xxxxxxxx.supabase.co
+  anonKey:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImliZ292Z2Z5aWJ4eHp0ZmtpZnJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM3MTI3NDMsImV4cCI6MjEwOTI4ODc0M30.zCPTmWXJCh64MmSD_KziayMr-WfdVDLmFz10P7UuKNY',        // Project Settings › API › anon public. Es pública por diseño.
   bucket:'adjuntos',
   maxMB:25,
   maxArchivos:10
